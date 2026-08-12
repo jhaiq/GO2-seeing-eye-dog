@@ -1,25 +1,62 @@
 # GO2 Seeing-Eye Dog
 
-Real-hardware ROS 2 stack for an assistive mobility system built on a Unitree GO2. The project combines audio localization, speech command extraction, RGB-D person detection, intent grounding, safety monitoring, and Nav2 configuration for guided navigation.
+**A ROS 2 stack that lets a blind or low-vision user call a Unitree GO2 quadruped across a room by speaking to it, and have the robot work out who called, where that person is standing, and walk to them.**
 
-This repository is for the hardware path. It is not the simulation workspace.
+A guide dog has to be summonable. If the handler puts the harness down, sits on a bench, and then wants the dog back, the dog finds them by voice, not by an app or a joystick. A quadruped that needs a phone screen or a controller to be recalled is useless to the person it was bought for. That is the specific gap this repository closes: the recall half of the interaction, running on the real robot rather than in simulation, using only the microphones and the RGB-D camera the robot carries.
+
+This repository is the hardware path. It is not the simulation workspace, and it does not contain a full autonomy state machine.
+
+## One interaction, end to end
+
+The user is roughly four metres away, off to the robot's left, in a room with two other people in frame. They say "hey robot, come here."
+
+| Step | What happens | Evidence in the code |
+|---|---|---|
+| 1. Hear | A four-channel linear mic array (5 cm spacing) segments a 3-second window once the frame energy crosses a threshold, then runs GCC-PHAT across channel pairs for a time delay and an azimuth. | `go2_audio_perception/audio_perception_node.py`, published on `/go2/audio/bearing_deg` |
+| 2. Understand | Whisper (`base.en`) transcribes the same window, and a keyword map turns free text into one of `come here`, `follow`, `stop`, `help`. | `go2_voice_commander/voice_commander_node.py`, published on `/go2/voice_command` |
+| 3. See | YOLOv8 detects people in the RealSense RGB frame, and each box is back-projected through the depth image and camera intrinsics into a 3D pose. | `go2_perception/perception_node.py`, published on `/go2/detected_humans` |
+| 4. Decide who | Each detected person gets a fused score, `0.4 * audio + 0.6 * visual`, where the audio term decays linearly to zero at 25 degrees away from the measured bearing. A stale bearing (older than 2 s) drops the person to visual only, scaled by 0.7. | `go2_intent_grounding/fusion.py` |
+| 5. Commit | The best person must clear a fused score of 0.65 on 5 consecutive frames before the target locks. The locked pose is transformed from the camera optical frame into `map` via TF2 and published as a Nav2 goal. | `go2_intent_grounding/intent_grounding_node.py`, published on `/go2/confirmed_target` and `/goal_pose` |
+| 6. Watch the floor | While Nav2 drives, the depth image is checked for a forward obstacle (slow at 1.0 m, stop at 0.4 m), a stair-like gradient in the floor band, and a curb or drop. | `go2_safety_monitor/safety_monitor_node.py`, published on `/go2/safety_alert` |
+
+```mermaid
+flowchart LR
+  U([User speaks]) --> MIC[Mic array<br/>GCC-PHAT bearing]
+  U --> ASR[Whisper<br/>command parse]
+  CAM[RealSense RGB-D] --> YOLO[YOLOv8 + depth<br/>3D person poses]
+  MIC -->|/go2/audio/bearing_deg| FUSE
+  ASR -->|/go2/voice_command| FUSE
+  YOLO -->|/go2/detected_humans| FUSE[Intent grounding<br/>fused score, 5-frame lock]
+  FUSE -->|/goal_pose| NAV[Nav2]
+  CAM --> SAFE[Safety monitor<br/>stairs, drops, obstacles]
+  SAFE -.->|/go2/safety_alert<br/>advisory only| NAV
+  NAV --> GAIT[Gait controller]
+```
+
+The dashed arrow is deliberate. The safety monitor publishes alerts, but no behavior-tree condition node currently hard-gates motion on them. That is the most important open item in this repository.
 
 ## Status
 
-**Active thesis development, Unitree GO2 EDU + Jetson Orin NX (16 GB)**
+Unitree GO2 EDU with an onboard Jetson, ROS 2 Humble. Split by what has actually been run, not by what exists.
 
-| Component | State |
-|---|---|
-| Audio perception (GCC-PHAT bearing, NeMo ASR bridge) | Implemented, unit-tested |
-| Voice command parsing (Whisper) | Implemented |
-| Visual perception (YOLOv8 + depth back-projection) | Implemented |
-| Intent grounding (audio/voice/vision fusion) | Implemented |
-| Safety monitor (depth-based hazard detection) | Implemented |
-| Gait controller (C++ lifecycle node) | Implemented, CI build passing |
-| Nav2 config and behavior trees | Configured, not yet validated on hardware |
-| End-to-end hardware validation | In progress, live sensor TF and Nav2 runtime pending |
+| Capability | Implemented | Unit-tested | Validated on the robot |
+|---|---|---|---|
+| Audio bearing (GCC-PHAT) | Yes | Yes | No, thresholds are mic- and mount-specific |
+| Voice command parsing (Whisper) | Yes | Yes | No |
+| NeMo ASR bridge | Yes | No | No |
+| Person detection (YOLOv8 + depth back-projection) | Yes, stock `yolov8n` weights | No | No |
+| Intent grounding and fusion | Yes | Yes | No |
+| Safety monitor (stairs, drops, obstacles) | Yes | No | No |
+| Gait controller (C++ lifecycle node) | Yes, CI build passing | No | No |
+| Nav2 params and recovery behavior tree | Configured | No | No |
+| Safety alerts hard-gating motion | **No**, alerts are advisory | n/a | n/a |
+| `follow` and `help` commands | Parsed and published, **not consumed** downstream | n/a | n/a |
+| Guiding or leading the user | **Not implemented**, this repo recalls the robot, it does not walk the user anywhere | n/a | n/a |
+| End-to-end recall on hardware | In progress, live sensor TF and Nav2 runtime pending | n/a | No |
 
-Dataset collection for custom-trained perception models is in progress. See [DATA.md](DATA.md).
+32 unit tests pass locally (`go2_audio_perception`, `go2_voice_commander`, `go2_intent_grounding`, `evaluation`). Every number quoted above is a default parameter value in the source, not a measured field result. Nothing in this repository has a published accuracy or latency measurement on the real robot yet.
+
+A custom four-class perception model (owner, wrist marker, phone marker, follow marker) is specified in [DATA.md](DATA.md), but the dataset is still being collected and the shipped default is stock YOLOv8.
 
 ## Repository Layout
 
@@ -117,7 +154,6 @@ USE_SIM=true ./scripts/run.sh
 
 ## Operational Notes
 
-- The safety monitor publishes alerts, but this repo does not yet contain a Nav2 behavior-tree condition node that hard-gates motion on `/go2/safety_alert`.
 - Camera streams are subscribed with `BEST_EFFORT`; camera-info QoS compatibility still needs runtime verification against the actual driver.
 - Audio thresholds and hazard thresholds are hardware- and mounting-dependent. Do not treat them as portable constants.
 
@@ -125,7 +161,7 @@ USE_SIM=true ./scripts/run.sh
 
 | Model | Audio | Notes |
 |---|---|---|
-| Go2 EDU | Yes | Verified on hardware |
+| Go2 EDU | Yes | Microphone hardware present and captured on the unit used here |
 | Go2 Pro | Yes | Expected to work (same hardware) |
 | Go2 Air | No | No microphone hardware |
 
