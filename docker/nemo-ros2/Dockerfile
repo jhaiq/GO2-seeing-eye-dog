@@ -18,8 +18,9 @@ RUN apt-get update && apt-get install -y \
 # Install additional Python deps
 RUN pip install rclpy
 
-# Set up user yusuf to match host
-ARG USERNAME=yusuf
+# Set up a non-root user matching the host UID/GID (override at build time
+# with --build-arg USERNAME=<you> --build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g))
+ARG USERNAME=developer
 ARG USER_UID=1000
 ARG USER_GID=1000
 

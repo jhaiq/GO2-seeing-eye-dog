@@ -14,11 +14,11 @@ services:
               count: all
               capabilities: [gpu]
     volumes:
-      - /home/yusuf/workspace:/home/yusuf/workspace
-      - /home/yusuf/ros2_ws:/home/yusuf/ros2_ws
+      - ${HOST_WORKSPACE:-../..}:/home/${USERNAME:-developer}/workspace
+      - ${HOST_ROS2_WS:-~/ros2_ws}:/home/${USERNAME:-developer}/ros2_ws
     environment:
       - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
-    user: yusuf
-    working_dir: /home/yusuf/workspace/GO2-seeing-eye-dog/go2_audio_perception
+    user: ${USERNAME:-developer}
+    working_dir: /home/${USERNAME:-developer}/workspace/go2_audio_perception
     command: /bin/bash
