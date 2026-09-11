@@ -65,9 +65,18 @@ has to supply it; do not assume TF exists.
 - `header.lease.id = 0`, `header.policy.priority = 0`, `header.policy.noreply = false`
 - `parameter` = a JSON string
 
-Verified api ids: **1001 CheckMode**, **1003 StopMove**, **1008 Move**
+Verified api ids ON THIS TOPIC: **1003 StopMove**, **1008 Move**
 (`{"x": <m/s>, "y": <m/s>, "z": <rad/s>}`). The robot replies on `/api/sport/response`
 with `status.code = 0` and the matching request id.
+
+**DANGER, corrected 2026-09-10: `1001` on `/api/sport/request` is `Damp`, NOT `CheckMode`.**
+An earlier version of this line listed "1001 CheckMode" here, which conflated two different
+services. `Damp` releases the legs and the robot DROPS where it stands. Confirmed against the
+vendor SDK: `unitree_sdk2py/go2/sport/sport_api.py` defines `SPORT_API_ID_DAMP = 1001`, while
+`unitree_sdk2py/comm/motion_switcher/motion_switcher_api.py` defines
+`MOTION_SWITCHER_API_ID_CHECK_MODE = 1001`. CheckMode is api 1001 on
+**`/api/motion_switcher/request`**, a different topic. Hand-typing 1001 at the sport topic
+expecting a harmless mode query would drop a standing robot.
 
 `CheckMode` returns `{"form":"0","name":"mcf"}`. **Only ever `SelectMode('mcf')` or
 `'ai'`.** `SelectMode('normal')` wedges the robot and needs a power cycle.
