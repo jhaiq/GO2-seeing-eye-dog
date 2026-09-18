@@ -31,6 +31,13 @@ Arguments
     LiDAR or the map->odom transform stops the robot. ``map_file`` selects the
     serialized pose graph for slam_localization.
 
+``lidar_safety``    true | false   (default: false)
+    Starts go2_lidar_safety's lidar_hazard_node on /go2/lidar/points, a
+    hazard source that does not need the depth camera. It publishes on the
+    same /go2/safety_state and /go2/safety_alert channels the arbiter already
+    combines most-restrictive-wins, so it can run alongside the camera
+    monitor. Requires localization (the relay produces the cloud and TF).
+
 ``hardware_adapter`` dry_run | unitree_sport   (default: dry_run)
     The default is dry_run. Selecting a physical adapter is an explicit,
     deliberate act.
@@ -249,6 +256,20 @@ def _localization_group():
     )
 
 
+def _lidar_safety_group():
+    return IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            [PathJoinSubstitution([FindPackageShare("go2_lidar_safety"), "launch", "lidar_safety.launch.py"])]
+        ),
+        launch_arguments={
+            "cloud_topic": "/go2/lidar/points",
+            "use_sim_time": LaunchConfiguration("use_sim_time"),
+            "log_level": LaunchConfiguration("log_level"),
+        }.items(),
+        condition=IfCondition(LaunchConfiguration("lidar_safety")),
+    )
+
+
 def generate_launch_description() -> LaunchDescription:
     log_level = LaunchConfiguration("log_level")
 
@@ -278,6 +299,11 @@ def generate_launch_description() -> LaunchDescription:
             description="none | slam_mapping | slam_localization.",
         ),
         DeclareLaunchArgument("map_file", default_value=""),
+        DeclareLaunchArgument(
+            "lidar_safety",
+            default_value="false",
+            description="true starts the LiDAR hazard source (no depth camera needed).",
+        ),
         DeclareLaunchArgument("cloud_in_topic", default_value="/utlidar/cloud_deskewed"),
         DeclareLaunchArgument("publish_lidar_extrinsic", default_value="false"),
         DeclareLaunchArgument("dry_run_log_path", default_value=""),
@@ -306,6 +332,7 @@ def generate_launch_description() -> LaunchDescription:
             _nav_to_pose_adapter(log_level),
             _nav2_group(log_level),
             _localization_group(),
+            _lidar_safety_group(),
             motion_authority,
         ]
     )

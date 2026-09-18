@@ -22,6 +22,7 @@
   <exec_depend>go2_hardware_bridge</exec_depend>
   <exec_depend>go2_approach_controller</exec_depend>
   <exec_depend>go2_localization</exec_depend>
+  <exec_depend>go2_lidar_safety</exec_depend>
   <!-- Optional: only needed for planner:=nav2. -->
   <exec_depend>nav2_bringup</exec_depend>
   <!-- Optional: only needed for perception:=real. -->
