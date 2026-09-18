@@ -260,28 +260,32 @@ Not implemented. Listed so the gap is visible, not to imply imminence.
 Claims that would be false. Recorded because several were previously made, or
 are the obvious next overstatement.
 
-* ❌ **"An end-to-end assistive navigation system running on a GO2."**
+* **"An end-to-end assistive navigation system running on a GO2."**
   Nothing has run on a GO2.
-* ❌ **"Nav2-based autonomous navigation."** Nav2 has never completed lifecycle
-  bring-up in this repository. The default planner is a straight-line
-  controller with no planning.
-* ❌ **"The robot navigates to the caller."** It drives at the caller. There is
+* **"Nav2-based autonomous navigation" (on the robot).** Nav2 now configures,
+  plans and completes goals in the kinematic simulator (`go2_sim`,
+  `closed_loop_trials`), with LiDAR localization and the real Unitree adapter
+  in the loop. It has not run on a GO2. The default planner is still the
+  straight-line controller.
+* **"The robot navigates to the caller."** It drives at the caller. There is
   no map, no plan and no obstacle avoidance.
-* ❌ **"Safety-validated velocity limits."** No limit has been measured on the
+* **"Safety-validated velocity limits."** No limit has been measured on the
   platform.
-* ❌ **"Speaker-verified caller identification."** There is no runtime speaker
+* **"Speaker-verified caller identification."** There is no runtime speaker
   verification. Any voice producing a recognised phrase is a valid request.
-* ❌ **"Validated audio-visual fusion."** The fusion model is coherent,
+* **"Validated audio-visual fusion."** The fusion model is coherent,
   documented and tested against its own stated semantics. It has not been
   evaluated against ground truth with real callers, and its equal error rate is
   unmeasured. The published EER in `evaluation/results/` is computed from
   `np.random` embeddings and characterises the metric implementation, not this
   system.
-* ❌ **"Verified obstacle avoidance."** The system stops for hazards. It does
-  not avoid them.
-* ❌ **"Tested on hardware."** The dry-run bridge is not hardware, and every
-  test in this repository asserting on actuation asserts on it.
-* ❌ **"A secure safety architecture."** It is a *deterministic, fail-closed*
+* **"Verified obstacle avoidance."** With `planner:=nav2` the planner routes
+  around LiDAR-observed obstacles in simulation, and the LiDAR hazard source
+  forbids motion toward close obstacles; neither is verified on hardware. The
+  default staged planner still only stops for hazards.
+* **"Tested on hardware."** The dry-run bridge and the kinematic simulator
+  are not hardware; every test asserting on actuation asserts on one of them.
+* **"A secure safety architecture."** It is a *deterministic, fail-closed*
   architecture on a trusted domain. It has no authentication, and an
   independent audit demonstrated takeover from an unprivileged process.
 
