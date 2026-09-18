@@ -23,8 +23,14 @@ echo "== environment"
 [ -n "$ROS_DISTRO" ] && pass "ROS_DISTRO=$ROS_DISTRO" || fail "ROS not sourced"
 if [ "$RMW_IMPLEMENTATION" = "rmw_cyclonedds_cpp" ]; then pass "RMW cyclonedds"; else fail "RMW_IMPLEMENTATION is '$RMW_IMPLEMENTATION' (robot speaks cyclonedds)"; fi
 if [ -n "$CYCLONEDDS_URI" ]; then
-  iface=$(grep -o 'NetworkInterface name="[^"]*"' "${CYCLONEDDS_URI#file://}" 2>/dev/null | head -1 | cut -d'"' -f2)
-  iface=${iface:-$(grep -o '<NetworkInterfaceAddress>[^<]*' "${CYCLONEDDS_URI#file://}" 2>/dev/null | head -1 | cut -d'>' -f2)}
+  # CYCLONEDDS_URI is either a file URI/path or the XML itself (unitree_ros2/setup.sh
+  # exports inline XML); reading inline XML as a path reported a false '<none>'.
+  case "$CYCLONEDDS_URI" in
+    "<"*) dds_cfg=$CYCLONEDDS_URI ;;
+    *) dds_cfg=$(cat "${CYCLONEDDS_URI#file://}" 2>/dev/null) ;;
+  esac
+  iface=$(printf '%s' "$dds_cfg" | grep -o 'NetworkInterface name="[^"]*"' | head -1 | cut -d'"' -f2)
+  iface=${iface:-$(printf '%s' "$dds_cfg" | grep -o '<NetworkInterfaceAddress>[^<]*' | head -1 | cut -d'>' -f2)}
   if [ -n "$iface" ] && ip -brief link show "$iface" 2>/dev/null | grep -q UP; then
     pass "CycloneDDS interface '$iface' exists and is UP"
   else
