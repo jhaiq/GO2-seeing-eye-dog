@@ -19,7 +19,8 @@ Arguments
     ``staged_nav``  the staged controller plus nav_to_pose_adapter_node, which
                 serves /navigate_to_pose over it so Nav2-shaped clients (the
                 semantic grounding node) can drive it. Still no planning.
-    ``nav2``    the real Nav2 stack, with its unstamped ``cmd_vel`` remapped
+    ``nav2``    the real Nav2 stack (go2_navigation/launch/navigation.launch.py),
+                with its unstamped ``cmd_vel`` remapped
                 into the candidate inlet so it can never reach the bridge.
                 Requires a map, localization, odometry, TF and a laser scan —
                 see docs/target_runtime_architecture.md before using it.
@@ -207,15 +208,6 @@ def _nav2_group(log_level):
                     "log_level": log_level,
                     "controller_prefix": LaunchConfiguration("controller_prefix"),
                 }.items(),
-            ),
-            # Recovers Nav2 if its controller stops receiving map->odom (see
-            # go2_localization/nav_tf_watchdog.py for the observed failure).
-            Node(
-                package="go2_localization",
-                executable="nav_tf_watchdog",
-                name="nav_tf_watchdog",
-                output="screen",
-                arguments=["--ros-args", "--log-level", log_level],
             ),
             # The stamper is the ONLY sanctioned producer on the unstamped
             # inlet, and the inlet is off unless this group is active.

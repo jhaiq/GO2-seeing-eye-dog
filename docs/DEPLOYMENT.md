@@ -36,7 +36,7 @@ go2-semantic-nav wraps it in `deploy.launch.py`.
 |---|---|---|
 | Robot clock skew corrected | VERIFIED OFFLINE | real 2026-09-01 bag: 27,605,481 s skew; relay tests; sim learns 27605481.0001 s |
 | Nav2 configures and activates on Humble | VERIFIED IN SIM | lifecycle "Managed nodes are active"; `test_nav2_params.py` checks every plugin |
-| Goal -> Nav2 -> arbiter -> real Unitree adapter -> robot | VERIFIED IN KINEMATIC SIM | `ros2 run go2_sim closed_loop_trials` (see results below) |
+| Goal -> Nav2 -> arbiter -> real Unitree adapter -> robot | VERIFIED IN KINEMATIC SIM | 12 fresh trials x 5 goals (both rooms, 1 m doorway): 60/60 succeeded, 0 collisions, arrival error median 0.19 m, p90 0.28 m (`closed_loop_trials`, CycloneDDS, 2026-09-18) |
 | LiDAR hazard source replaces the camera | VERIFIED IN SIM | 42 tests incl. real arbiter; no RealSense needed |
 | Anything on the physical robot | HW-UNVERIFIED | no session yet |
 | `/utlidar/cloud_deskewed` is in `odom` | ASSUMPTION | preflight checks it; fallback is raw cloud + `calibrate_lidar` |
@@ -129,25 +129,36 @@ For single-host sim on loopback, use
 (loopback cannot multicast and the default participant limit is too small
 for this graph). Never use that file on the robot.
 
-## Open issue: Nav2 controller loses map -> odom
+## Fixed: Nav2 controller TF freeze (Humble tf2_ros deadlock)
 
-In roughly 1 in 10 closed-loop sim trials, under FastDDS and CycloneDDS
-alike, Nav2's controller_server stops seeing new `map -> odom` transforms
-while slam_toolbox keeps publishing them and other readers keep receiving
-them. From then on every path is rejected ("Transform data too old when
-converting from map to odom") and navigation is dead. The robot fails safe:
-no candidates reach the arbiter, which commands zero. **The root cause was
-not isolated.** Ruled out: robot-clock correction (no resets or stamp jumps
-in bags of affected runs), slam_toolbox stopping (its transform stayed fresh
-on `/tf`), leftover processes from earlier trials, and FastDDS alone (it
-also happened once under CycloneDDS).
+Symptom (closed-loop sim, about 3 in 10 trials before the fix, FastDDS and
+CycloneDDS alike): Nav2's controller_server stopped receiving any transform,
+rejected every path ("Transform data too old when converting from map to
+odom") for the rest of the run, and the robot stood still (safe, but dead).
 
-Mitigation: `nav_tf_watchdog` (started with `planner:=nav2`) watches for the
-planner publishing `/plan` while the controller publishes nothing on
-`/received_global_plan` for 3 s, and resets and restarts the Nav2 lifecycle.
-The goal in progress aborts and must be re-sent. Its recovery count is on
-`/go2/nav_health`. Watch it during stage 4; a recovery on the robot is a
-finding to record, not noise.
+Root cause, from gdb stacks of a frozen controller_server: a lock-order
+inversion in tf2_ros 0.25.23, the current Humble release. The TF listener
+thread holds the buffer's transformable-requests lock in
+`testTransformableRequests` and calls into `tf2_ros::Buffer`; the costmap's
+LaserScan `MessageFilter` thread holds the Buffer lock in `waitForTransform`
+and waits in `addTransformableRequest`. The deadlock is reachable only while
+a transform request is pending, i.e. when a scan arrives stamped later than
+the newest buffered pose.
+
+Verification: 12 fresh closed-loop trials after the fix, 0 freezes (at the
+pre-fix rate of about 3 in 10, the chance of 0 in 12 is about 1.6%).
+
+Fix: `go2_state_relay_node` clamps every forwarded cloud to (newest odom
+pose - `cloud_stamp_margin_s`, 20 ms), so scans are transformable on arrival
+and no request is ever pending in pointcloud_to_laserscan, slam_toolbox or
+the costmaps. Keep this in mind if you add another sensor that feeds a Nav2
+costmap: stamp it no later than the newest pose. On the robot, L1 clouds are
+stamped at scan time (~70 ms before receipt), so the clamp rarely engages;
+in the kinematic sim it engaged on nearly every cloud.
+
+Debug aid: `controller_prefix` on `go2_navigation/launch/navigation.launch.py`
+and `closed_loop_trials --gdb-controller` capture all thread stacks if a
+stall ever recurs.
 
 ## Known limits
 
