@@ -109,6 +109,12 @@ class NavToPoseAdapterNode(Node):
         self.declare_parameter("goal_ack_timeout_s", 1.0)
         self.declare_parameter("cancel_confirm_timeout_s", 1.0)
         self.declare_parameter("feedback_period_s", 0.2)
+        # The approach controller stops goal_tolerance_m SHORT of any goal (a
+        # social distance for "come here"). A NavigateToPose caller asks for a
+        # pose, so the forwarded goal is pushed that far further along the
+        # approach line and the robot stops at the requested pose.
+        self.declare_parameter("compensate_controller_tolerance", True)
+        self.declare_parameter("controller_goal_tolerance_m", 0.8)
 
         self._robot_frame = str(self.get_parameter("robot_frame").value)
         self._status_timeout = float(self.get_parameter("status_timeout_s").value)
@@ -196,6 +202,31 @@ class NavToPoseAdapterNode(Node):
         pose.pose.orientation = tf.transform.rotation
         return pose
 
+    def _compensated(self, pose: PoseStamped) -> PoseStamped:
+        """Extend the goal along robot->goal by the controller's stop tolerance."""
+        if not bool(self.get_parameter("compensate_controller_tolerance").value):
+            return pose
+        tol = float(self.get_parameter("controller_goal_tolerance_m").value)
+        robot = self._current_pose(pose.header.frame_id)
+        if robot is None or tol <= 0.0:
+            self.get_logger().warn(
+                "no robot pose in goal frame; forwarding goal uncompensated "
+                f"(robot will stop {tol:.2f} m short)"
+            )
+            return pose
+        dx = pose.pose.position.x - robot.pose.position.x
+        dy = pose.pose.position.y - robot.pose.position.y
+        dist = math.hypot(dx, dy)
+        if dist < 1e-3:
+            return pose
+        out = PoseStamped()
+        out.header = pose.header
+        out.pose.orientation = pose.pose.orientation
+        out.pose.position.x = pose.pose.position.x + tol * dx / dist
+        out.pose.position.y = pose.pose.position.y + tol * dy / dist
+        out.pose.position.z = pose.pose.position.z
+        return out
+
     def _finish(self, tracked: _Tracked, outcome: str, message: str) -> None:
         if tracked.done.done():
             return
@@ -258,7 +289,7 @@ class NavToPoseAdapterNode(Node):
         else:
             self._active = tracked
             tracked.sent_at = self._mono()
-            self._goal_pub.publish(request.pose)
+            self._goal_pub.publish(self._compensated(request.pose))
             self.get_logger().info(
                 f"goal forwarded in '{request.pose.header.frame_id}': "
                 f"({request.pose.pose.position.x:.2f}, {request.pose.pose.position.y:.2f})"

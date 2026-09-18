@@ -113,7 +113,8 @@ class TestAdapter:
         graph, _adapter, _client, send = adapter_graph
         _add_controller(graph)
         graph.spin_for(0.3)
-        handle = send(0.5)
+        # The robot already stands on the requested pose (static TF, identity).
+        handle = send(0.0)
         assert handle.accepted
         result = handle.get_result_async()
         assert _spin_until(graph, result.done, 5.0)
@@ -149,12 +150,29 @@ class TestAdapter:
         assert not result.done()
 
         def advance():
-            robot["x"] = min(robot["x"] + 0.02, 2.5)
+            robot["x"] = min(robot["x"] + 0.02, 3.3)
             publish_pose()
 
         assert _spin_until(graph, result.done, 10.0, each=advance)
         assert _status_of(result) == GoalStatus.STATUS_SUCCEEDED
-        assert robot["x"] >= 3.0 - 0.8 - 0.05
+        # Arrives AT the requested pose: the adapter extended the forwarded
+        # goal by the controller's 0.8 m stop tolerance.
+        assert robot["x"] >= 3.0 - 0.1
+
+    def test_forwarded_goal_is_extended_by_controller_tolerance(self, adapter_graph):
+        from geometry_msgs.msg import PoseStamped
+
+        graph, _adapter, client_node, send = adapter_graph
+        _controller, tf_node, _b, _statuses = _add_controller(graph)
+        forwarded = []
+        tf_node.create_subscription(PoseStamped, "goal_pose", forwarded.append, 10)
+        graph.spin_for(0.3)
+        send(3.0, 4.0)
+        assert _spin_until(graph, lambda: bool(forwarded), 3.0)
+        goal = forwarded[-1].pose.position
+        # Robot at origin, goal at distance 5 along (0.6, 0.8): +0.8 m further.
+        assert abs(goal.x - (3.0 + 0.8 * 0.6)) < 1e-6
+        assert abs(goal.y - (4.0 + 0.8 * 0.8)) < 1e-6
 
     def test_cancel_stops_the_controller(self, adapter_graph):
         from action_msgs.msg import GoalStatus
@@ -201,7 +219,7 @@ class TestAdapter:
         assert _status_of(first_result) == GoalStatus.STATUS_ABORTED
         graph.spin_for(0.6)
         assert not second_result.done(), "the new goal must keep executing"
-        assert statuses[-1].startswith("ACTIVE range=4.00")
+        assert statuses[-1].startswith("ACTIVE range=4.80")
 
         second.cancel_goal_async()
         assert _spin_until(graph, second_result.done, 3.0)
