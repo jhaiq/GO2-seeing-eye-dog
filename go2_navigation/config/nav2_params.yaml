@@ -172,8 +172,11 @@ local_costmap:
           inf_is_valid: false
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 3.0
-        inflation_radius: 0.55
+        # Wide, soft inflation keeps planned paths centred in 1 m doorways;
+        # 0.55 / 3.0 let paths hug frames and RPP aborted on "collision
+        # ahead" when the footprint clipped them (closed-loop sim).
+        cost_scaling_factor: 2.5
+        inflation_radius: 0.70
       always_send_full_costmap: true
 
 global_costmap:
@@ -215,8 +218,11 @@ global_costmap:
           obstacle_min_range: 0.0
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 3.0
-        inflation_radius: 0.55
+        # Wide, soft inflation keeps planned paths centred in 1 m doorways;
+        # 0.55 / 3.0 let paths hug frames and RPP aborted on "collision
+        # ahead" when the footprint clipped them (closed-loop sim).
+        cost_scaling_factor: 2.5
+        inflation_radius: 0.70
       # go2-semantic-nav's grounding node gates on receipt freshness of
       # /global_costmap/costmap; updates-only publishing would go stale.
       always_send_full_costmap: true
@@ -227,11 +233,26 @@ planner_server:
     expected_planner_frequency: 5.0
     planner_plugins: ["GridBased"]
     GridBased:
-      plugin: "nav2_navfn_planner/NavfnPlanner"
+      # Smac 2D (A* on the costmap grid). NavFn with use_astar: true failed
+      # intermittently in closed-loop sim with "Failed to create a plan from
+      # potential when a legal potential was found" when planning through
+      # unknown space; that is a NavFn A* defect, not a costmap problem.
+      plugin: "nav2_smac_planner/SmacPlanner2D"
       tolerance: 0.3
-      use_astar: true
+      downsample_costmap: false
+      downsampling_factor: 1
       # Semantic goals are often in space the map has not observed yet.
       allow_unknown: true
+      max_iterations: 1000000
+      max_on_approach_iterations: 1000
+      max_planning_time: 2.0
+      cost_travel_multiplier: 2.0
+      use_final_approach_orientation: false
+      smoother:
+        max_iterations: 1000
+        w_smooth: 0.3
+        w_data: 0.2
+        tolerance: 1.0e-10
 
 smoother_server:
   ros__parameters:
