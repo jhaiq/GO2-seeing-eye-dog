@@ -1,28 +1,50 @@
-"""Stall detection and Nav2 lifecycle recovery for the map->odom stall."""
+"""Controller-stall detection (planner active, controller silent) and Nav2 recovery."""
 import threading
 import time
 
 import pytest
-from go2_localization.nav_tf_watchdog import STALL_MARKER, StallDetector
+from go2_localization.nav_tf_watchdog import StallDetector
 
 
-def test_streak_shorter_than_stall_does_not_fire():
-    d = StallDetector(stall_s=3.0, gap_s=1.0)
-    assert not any(d.observe(t * 0.05) for t in range(50))  # 2.45 s
+def _drive(d, seconds, plan_hz=1.0, controller_hz=None, start=0.0, dt=0.05):
+    """Simulate topic arrivals; return times at which check() fired."""
+    fired = []
+    t = start
+    next_plan, next_ctrl = start, start
+    while t < start + seconds:
+        if t >= next_plan:
+            d.on_planner_plan(t)
+            next_plan += 1.0 / plan_hz
+        if controller_hz and t >= next_ctrl:
+            d.on_controller_plan(t)
+            next_ctrl += 1.0 / controller_hz
+        if d.check(t):
+            fired.append(t)
+        t += dt
+    return fired
 
 
-def test_continuous_streak_fires_once_then_cools_down():
-    d = StallDetector(stall_s=3.0, gap_s=1.0, cooldown_s=30.0)
-    fired = [t for t in range(200) if d.observe(t * 0.05)]  # 10 s of errors
-    assert len(fired) == 1 and fired[0] * 0.05 >= 3.0
+def test_healthy_navigation_never_fires():
+    assert _drive(StallDetector(), 60.0, plan_hz=1.0, controller_hz=20.0) == []
 
 
-def test_gap_restarts_the_streak():
-    d = StallDetector(stall_s=3.0, gap_s=1.0)
-    for t in range(40):
-        assert not d.observe(t * 0.05)  # 0 .. 1.95 s
-    for t in range(40):
-        assert not d.observe(5.0 + t * 0.05)  # after a 3 s gap: new streak
+def test_idle_or_recovery_behaviour_never_fires():
+    d = StallDetector()
+    assert _drive(d, 30.0, plan_hz=0.2) == []  # plans too sparse: not navigating
+
+
+def test_stall_fires_once_after_the_window_and_cools_down():
+    d = StallDetector(stall_s=3.0, cooldown_s=30.0)
+    _drive(d, 10.0, plan_hz=1.0, controller_hz=20.0)  # healthy first
+    fired = _drive(d, 20.0, plan_hz=1.0, controller_hz=None, start=10.0)  # controller goes silent
+    assert len(fired) == 1
+    assert 12.9 <= fired[0] <= 14.5  # 3 s after the last controller plan (~9.95 s)
+
+
+def test_fresh_navigation_gets_a_grace_window():
+    d = StallDetector(stall_s=3.0)
+    fired = _drive(d, 2.5, plan_hz=1.0, controller_hz=None)
+    assert fired == []
 
 
 def test_invalid_config_rejected():
@@ -30,56 +52,7 @@ def test_invalid_config_rejected():
         StallDetector(stall_s=0.0)
 
 
-def test_node_resets_then_starts_nav2_on_a_persistent_stall():
-    rclpy = pytest.importorskip("rclpy")
-    nav2_srv = pytest.importorskip("nav2_msgs.srv")
-    from rcl_interfaces.msg import Log
-    from rclpy.executors import MultiThreadedExecutor
-    from rclpy.node import Node
-
-    from go2_localization import nav_tf_watchdog
-
-    rclpy.init()
-    calls = []
-    fake = Node("fake_lifecycle_manager")
-
-    def handle(req, resp):
-        calls.append(req.command)
-        resp.success = True
-        return resp
-
-    fake.create_service(nav2_srv.ManageLifecycleNodes,
-                        "/lifecycle_manager_navigation/manage_nodes", handle)
-    pub = fake.create_publisher(Log, "/rosout", 100)
-    ex = MultiThreadedExecutor()
-    ex.add_node(fake)
-    threading.Thread(target=ex.spin, daemon=True).start()
-
-    stop = threading.Event()
-    watchdog = threading.Thread(
-        target=lambda: _run_watchdog(nav_tf_watchdog, stop), daemon=True)
-    watchdog.start()
-    try:
-        time.sleep(1.0)
-        end = time.monotonic() + 4.5
-        while time.monotonic() < end:
-            pub.publish(Log(name="tf_help", level=40, msg=STALL_MARKER))
-            time.sleep(0.05)
-        deadline = time.monotonic() + 3.0
-        while len(calls) < 2 and time.monotonic() < deadline:
-            time.sleep(0.05)
-        R = nav2_srv.ManageLifecycleNodes.Request
-        assert calls[:2] == [R.RESET, R.STARTUP]
-    finally:
-        stop.set()
-        ex.shutdown()
-        fake.destroy_node()
-        if rclpy.ok():
-            rclpy.shutdown()
-
-
 def _run_watchdog(module, stop):
-    """Run the watchdog node's spin loop until stop is set (context shared)."""
     import rclpy
 
     orig_init, orig_spin = rclpy.init, rclpy.spin
@@ -94,3 +67,57 @@ def _run_watchdog(module, stop):
         module.main()
     finally:
         rclpy.init, rclpy.spin = orig_init, orig_spin
+
+
+@pytest.mark.parametrize("controller_alive, expect_reset", [(False, True), (True, False)])
+def test_node_resets_nav2_only_when_the_controller_is_silent(controller_alive, expect_reset):
+    rclpy = pytest.importorskip("rclpy")
+    nav2_srv = pytest.importorskip("nav2_msgs.srv")
+    from nav_msgs.msg import Path
+    from rclpy.executors import MultiThreadedExecutor
+    from rclpy.node import Node
+
+    from go2_localization import nav_tf_watchdog
+
+    rclpy.init()
+    calls = []
+    fake = Node("fake_nav2")
+
+    def handle(req, resp):
+        calls.append(req.command)
+        resp.success = True
+        return resp
+
+    fake.create_service(nav2_srv.ManageLifecycleNodes,
+                        "/lifecycle_manager_navigation/manage_nodes", handle)
+    plan_pub = fake.create_publisher(Path, "/plan", 10)
+    ctrl_pub = fake.create_publisher(Path, "/received_global_plan", 10)
+    ex = MultiThreadedExecutor()
+    ex.add_node(fake)
+    threading.Thread(target=ex.spin, daemon=True).start()
+    stop = threading.Event()
+    threading.Thread(target=lambda: _run_watchdog(nav_tf_watchdog, stop), daemon=True).start()
+    try:
+        time.sleep(1.0)
+        t0 = time.monotonic()
+        last_plan = 0.0
+        while time.monotonic() - t0 < 6.0:
+            now = time.monotonic()
+            if now - last_plan >= 1.0:
+                plan_pub.publish(Path())
+                last_plan = now
+            if controller_alive:
+                ctrl_pub.publish(Path())
+            time.sleep(0.05)
+        time.sleep(1.0)
+        R = nav2_srv.ManageLifecycleNodes.Request
+        if expect_reset:
+            assert calls[:2] == [R.RESET, R.STARTUP]
+        else:
+            assert calls == []
+    finally:
+        stop.set()
+        ex.shutdown()
+        fake.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()

@@ -38,7 +38,8 @@ BAG_TOPICS = ["/plan", "/tf", "/tf_static", "/go2/safety/status", "/go2/localiza
               "/go2/safety_alert", "/navigate_to_pose/_action/status", "/local_plan"]
 
 
-def _launch(domain: int, planner: str, log_path: Path, bag: Path | None = None) -> subprocess.Popen:
+def _launch(domain: int, planner: str, log_path: Path, bag: Path | None = None,
+            tf_monitor: Path | None = None) -> subprocess.Popen:
     env = dict(os.environ, ROS_DOMAIN_ID=str(domain), ROS_LOCALHOST_ONLY="1")
     world = subprocess.check_output(["ros2", "pkg", "prefix", "go2_sim"], text=True).strip()
     world += "/share/go2_sim/worlds/apartment.yaml"
@@ -50,6 +51,10 @@ def _launch(domain: int, planner: str, log_path: Path, bag: Path | None = None) 
     )
     if bag is not None:
         cmd += f"sleep 3; ros2 bag record -o {bag} {' '.join(BAG_TOPICS)} & "
+    if tf_monitor is not None:
+        # An independent, long-lived C++ tf2 listener (not a Nav2 server):
+        # if the controller's map->odom freezes, does this one freeze too?
+        cmd += f"sleep 5; ros2 run tf2_ros tf2_echo odom map 2 > {tf_monitor} 2>&1 & "
     cmd += "wait"
     return subprocess.Popen(
         ["bash", "-c", cmd], env=env, stdout=open(log_path, "w"), stderr=subprocess.STDOUT,
@@ -194,6 +199,7 @@ def main(argv=None) -> int:
     ap.add_argument("--domain-base", type=int, default=150)
     ap.add_argument("--out", default="closed_loop_trials")
     ap.add_argument("--bag", action="store_true", help="record /plan, TF and safety topics per trial")
+    ap.add_argument("--tf-monitor", action="store_true", help="run a long-lived tf2_echo odom map per trial")
     args = ap.parse_args(argv)
 
     out_dir = Path(args.out)
@@ -202,7 +208,8 @@ def main(argv=None) -> int:
     for i in range(args.trials):
         domain = args.domain_base + i
         log = out_dir / f"trial_{i}.log"
-        proc = _launch(domain, args.planner, log, out_dir / f"bag_{i}" if args.bag else None)
+        proc = _launch(domain, args.planner, log, out_dir / f"bag_{i}" if args.bag else None,
+                       out_dir / f"tfmon_{i}.log" if args.tf_monitor else None)
         try:
             env_domain = os.environ.get("ROS_DOMAIN_ID")
             os.environ["ROS_DOMAIN_ID"] = str(domain)
