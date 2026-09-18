@@ -30,15 +30,15 @@ ros2 topic echo /go2/bridge/status
 `last_reject_reasons` explains anything the bridge refused independently of the
 arbiter:
 
-* `BRIDGE_WATCHDOG_TIMEOUT` — the arbiter went quiet. If the arbiter is
+* `BRIDGE_WATCHDOG_TIMEOUT`, the arbiter went quiet. If the arbiter is
   running, suspect QoS or a domain mismatch.
-* `COMMAND_EXPIRED` — the command's `valid_until` had passed on arrival.
+* `COMMAND_EXPIRED`, the command's `valid_until` had passed on arrival.
   Usually clock skew between the two processes.
-* `AUTHORITY_MISMATCH` — a second arbiter is publishing. Check
+* `AUTHORITY_MISMATCH`, a second arbiter is publishing. Check
   `ros2 topic info /cmd_vel_safe --verbose`; there must be exactly one publisher.
-* `SEQUENCE_REGRESSION` — replayed or reordered commands. A bag being played
+* `SEQUENCE_REGRESSION`, replayed or reordered commands. A bag being played
   back into a live graph will do this.
-* `SPEED_LIMIT` at the bridge — the arbiter emitted an over-limit command,
+* `SPEED_LIMIT` at the bridge, the arbiter emitted an over-limit command,
   which means the arbiter is malfunctioning or the two limit sets have drifted
   apart. `scripts/repo_doctor.py` checks for the latter.
 

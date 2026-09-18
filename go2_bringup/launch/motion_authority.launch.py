@@ -1,5 +1,5 @@
 """
-motion_authority.launch.py — the safety-authoritative half of the stack.
+motion_authority.launch.py, the safety-authoritative half of the stack.
 
 THIS FILE IS THE ARCHITECTURE. Every canonical entrypoint includes it, and no
 entrypoint may start a hardware bridge any other way.
@@ -68,7 +68,7 @@ def get_motion_authority_nodes(
 
     Exported for launch tests: a test can call this, inspect the resulting
     ``Node`` actions' remappings, and assert that the bridge has no route to
-    the candidate topic — without launching anything.
+    the candidate topic, without launching anything.
     """
     common_args = ["--ros-args", "--log-level", log_level]
 
@@ -99,7 +99,7 @@ def get_motion_authority_nodes(
             ("safety_state", "/go2/safety_state"),
             ("estop", "/go2/estop"),
             ("localization_valid", "/go2/localization_valid"),
-            # Output — the ONLY publisher of the safe topic in the system.
+            # Output, the ONLY publisher of the safe topic in the system.
             ("cmd_vel_safe", SAFE_TOPIC),
             ("safety/status", "/go2/safety/status"),
         ],

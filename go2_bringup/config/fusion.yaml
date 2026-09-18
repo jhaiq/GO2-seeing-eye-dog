@@ -1,5 +1,5 @@
 # ============================================================================
-# fusion.yaml — multimodal caller-confirmation parameters.
+# fusion.yaml, multimodal caller-confirmation parameters.
 #
 # The interpretation of every weight and threshold is documented here and in
 # the module docstring of go2_intent_grounding/fusion.py. The previous scheme

@@ -219,7 +219,7 @@ class TestEmergencyStop:
         """
         A topic may engage an e-stop. It must not be able to release one.
 
-        Otherwise any process on the graph — or a replayed bag — could
+        Otherwise any process on the graph, or a replayed bag, could
         re-enable motion by publishing ``false``.
         """
         graph, node, received, send = arbiter_setup
@@ -265,7 +265,7 @@ class TestShutdown:
         """
         Test 14: the arbiter announces a stop rather than merely going quiet.
 
-        Exercises the real teardown path — ``destroy_node`` — and then spins
+        Exercises the real teardown path, ``destroy_node``, and then spins
         only the remaining nodes to collect what was emitted. The arbiter's
         own timer is gone by then, so anything received afterwards is the
         shutdown stop and nothing else.

@@ -1,5 +1,5 @@
 """
-DEPRECATED — superseded by ``system.launch.py``.
+DEPRECATED, superseded by ``system.launch.py``.
 
 This file used to be the main entrypoint. It is retained only to fail loudly,
 because launching the graph it described was worse than launching nothing:

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-SafetyArbiterNode — the single node with final authority over GO2 motion.
+SafetyArbiterNode, the single node with final authority over GO2 motion.
 
 Contract
 --------
@@ -188,8 +188,8 @@ class SafetyArbiterNode(Node):
         # node clock.
         #
         # With use_sim_time enabled, the node clock comes from /clock. If /clock
-        # stops — a paused simulator, a crashed clock publisher, a bag that ran
-        # out — then `now` stops advancing, every age computes as zero, and the
+        # stops, a paused simulator, a crashed clock publisher, a bag that ran
+        # out, then `now` stops advancing, every age computes as zero, and the
         # watchdog can never fire. It is not that the watchdog fails to notice
         # the fault; it is that the watchdog's own notion of elapsed time is
         # the thing that broke. A robot moving at the moment the clock stalls
@@ -219,7 +219,7 @@ class SafetyArbiterNode(Node):
         # They used to share one variable, so whichever message arrived last
         # decided the hazard state. A `std_msgs/String` reading "CLEAR" on
         # /go2/safety_state would therefore cancel an EMERGENCY_STOP that the
-        # depth pipeline was asserting on /go2/safety_alert — a lower-evidence
+        # depth pipeline was asserting on /go2/safety_alert, a lower-evidence
         # channel silently overriding a higher-evidence one purely by timing.
         self._alert_type: Optional[str] = None
         self._alert_stamp: Optional[float] = None
@@ -307,7 +307,7 @@ class SafetyArbiterNode(Node):
         stamp = msg.header.stamp.sec + msg.header.stamp.nanosec / 1e9
         if stamp <= 0.0:
             # An unset stamp is a defect in the producer. Do not silently
-            # substitute "now" — that would convert a bug into permission.
+            # substitute "now", that would convert a bug into permission.
             self.get_logger().warn(
                 "Candidate with zero timestamp rejected at intake", throttle_duration_sec=2.0
             )
@@ -349,7 +349,7 @@ class SafetyArbiterNode(Node):
         Combine the two hazard channels, most restrictive wins.
 
         Returns ``(hazard_type, stamp)`` for the core, or ``(None, None)`` when
-        no fresh information exists on either channel — which the core treats
+        no fresh information exists on either channel, which the core treats
         as a stop.
         """
         candidates = []
@@ -434,7 +434,7 @@ class SafetyArbiterNode(Node):
                 self._publish_stop(
                     [Reason.RULE_EVALUATION_FAILED], self._steady_now()
                 )
-            except Exception:  # noqa: BLE001 — nothing further can be done here
+            except Exception:  # noqa: BLE001, nothing further can be done here
                 pass
 
     def _tick_inner(self) -> None:
@@ -631,7 +631,7 @@ def main(args=None) -> None:
     ``ExternalShutdownException`` is handled explicitly. Without it, a SIGTERM
     during ``spin`` (which is how launch stops a node, and how Ctrl-C reaches
     one) invalidates the rcl context underneath the executor and raises
-    ``RCLError: failed to initialize wait set`` from inside ``spin`` — before
+    ``RCLError: failed to initialize wait set`` from inside ``spin``, before
     the ``finally`` block can run ``destroy_node``. For the arbiter, that
     would mean the explicit zero-velocity STOPPED commands never being published, so
     the bridge learns of the stop only when its watchdog expires.

@@ -1,5 +1,5 @@
 """
-DryRunGo2Bridge — records commands, touches no hardware.
+DryRunGo2Bridge, records commands, touches no hardware.
 
 This adapter exists so the full perception → confirmation → goal → control →
 safety → actuation chain can be executed and asserted on in CI, on a laptop,

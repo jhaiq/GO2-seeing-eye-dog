@@ -16,7 +16,7 @@ repository.**
 
 | API id | Use |
 |---|---|
-| 1008 `Move` | Body velocity `(vx, vy, wz)` — the normal command path |
+| 1008 `Move` | Body velocity `(vx, vy, wz)`, the normal command path |
 | 1003 `StopMove` | Zero velocity. Preferred over `Move(0,0,0)`: it halts the controller rather than making it track a commanded zero. |
 | 1001 `Damp` | Emergency stop. The strongest stop reachable over the Sport API without cutting power. |
 
@@ -67,7 +67,7 @@ dead arbiter is caught by the bridge rather than waited on.
 
 **Unverified:** real DDS latency on the GO2's onboard computer, over its
 network, under load. If it exceeds `candidate_max_age_sec`, every command will
-be refused as stale and the robot will simply never move — a safe failure, but
+be refused as stale and the robot will simply never move, a safe failure, but
 one to recognise rather than debug blindly.
 
 ## Sensors
@@ -78,7 +78,7 @@ left/right depends on the physical microphone ordering, which is not documented
 in code. The node asserts REP-103 (positive = left).
 
 *If that assertion is wrong, the fusion association gate will systematically
-reject the correct caller* — the same class of failure that was just fixed one
+reject the correct caller*, the same class of failure that was just fixed one
 layer downstream. A bench test with a known source direction is owed. See
 `docs/debugging.md`.
 

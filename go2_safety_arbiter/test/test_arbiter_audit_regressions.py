@@ -2,7 +2,7 @@
 Regressions for defects found by the adversarial safety audit.
 
 Each class names the finding it closes. These are the tests that would have
-caught the bugs, written after the fact — which is the honest description, and
+caught the bugs, written after the fact, which is the honest description, and
 the reason they are in their own file rather than mixed into the suite that
 did not catch them.
 
@@ -246,7 +246,7 @@ class TestM2ATickExceptionStillStops:
     """
     M2: an exception in the timer killed the arbiter process outright. The
     core guarded individual rules, but that guarantee was worth nothing if the
-    surrounding tick raised — the stop was never published either.
+    surrounding tick raised, the stop was never published either.
     """
 
     def test_a_raising_tick_publishes_a_stop_instead_of_dying(self, graph):
@@ -296,7 +296,7 @@ class TestM2ATickExceptionStillStops:
 class TestC3WatchdogsUseSteadyTime:
     """
     C3: with `use_sim_time` enabled, a stalled `/clock` froze every watchdog.
-    Ages computed as zero, so the watchdog could not fire — the fault was in
+    Ages computed as zero, so the watchdog could not fire, the fault was in
     the watchdog's own notion of elapsed time. A robot moving when the clock
     stalled kept moving; the audit measured 14.9 s of wall time at 0.4 m/s
     with every watchdog asleep.

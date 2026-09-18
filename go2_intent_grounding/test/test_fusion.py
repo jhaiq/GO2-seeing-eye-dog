@@ -275,7 +275,7 @@ class TestEvidenceOrdering:
     def test_the_old_model_had_this_backwards(self):
         """
         Under the old model, losing the microphone entirely (0.7*v) scored
-        HIGHER than having it disagree (0.6*v) — and worse, disagreement made
+        HIGHER than having it disagree (0.6*v), and worse, disagreement made
         confirmation mathematically impossible at any confidence, since
         0.6*1.0 = 0.6 < 0.65.
         """

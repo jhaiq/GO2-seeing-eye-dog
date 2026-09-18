@@ -147,7 +147,7 @@ class TestWatchdog:
         """
         The single most important property in this file.
 
-        After a good command, an absent one must produce zero — not a repeat
+        After a good command, an absent one must produce zero, not a repeat
         of the previous value. "Continue last command" is how a robot keeps
         walking after its planner dies.
         """

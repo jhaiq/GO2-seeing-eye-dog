@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CandidateStamperNode — adapts an unstamped controller to the stamped contract.
+CandidateStamperNode, adapts an unstamped controller to the stamped contract.
 
 Nav2 on ROS 2 Humble publishes ``geometry_msgs/Twist`` on ``cmd_vel``;
 ``TwistStamped`` only became the Nav2 default in later distributions.  The
@@ -18,7 +18,7 @@ That means the age the arbiter computes excludes any latency inside the
 producer and in the middleware before arrival.  It is a lower bound on true
 age.  This is recorded here, in the launch file, and in the architecture doc,
 because a freshness guarantee built on an unverifiable timestamp is worth
-less than one built on a real one — but it is still worth more than nothing,
+less than one built on a real one, but it is still worth more than nothing,
 since it catches the dominant failure mode: the producer stopping.
 
 When Nav2 is upgraded to a distribution that publishes TwistStamped, delete

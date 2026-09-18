@@ -21,7 +21,7 @@ class LimitConfigError(ValueError):
 #
 # A configured limit is a *reduction* of these, never an increase. Without
 # them, validating only "positive and finite" meant `-p max_vx:=100.0` was
-# accepted and the arbiter dutifully clamped to 100 m/s — a safety layer that
+# accepted and the arbiter dutifully clamped to 100 m/s, a safety layer that
 # enforces whatever it is told to enforce is not a safety layer.
 #
 # These are hard-coded rather than configurable on purpose: the point of a

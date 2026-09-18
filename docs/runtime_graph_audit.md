@@ -1,11 +1,11 @@
-# Runtime graph audit — the state of this repository before the upgrade
+# Runtime graph audit, the state of this repository before the upgrade
 
 Audited at commit `55d1d40`, before any change described in
 `docs/END_TO_END_UPGRADE_REPORT.md`. Every statement here comes from
 executable code, package manifests and the launch graph. README and
 documentation claims were read only to locate assertions to check, and no
-finding rests on them. Findings were produced independently twice — once
-directly and once by a separate reviewer with no access to the first pass —
+finding rests on them. Findings were produced independently twice, once
+directly and once by a separate reviewer with no access to the first pass,
 and reconciled.
 
 `build/`, `install/` and `log/` were excluded as stale colcon artefacts.
@@ -38,7 +38,7 @@ faults, any one of which is fatal:
 **a. A behaviour-tree plugin library that does not exist.**
 `go2_navigation/config/nav2_params.yaml:31` lists
 `nav2_reactive_fallback_bt_node` among `bt_navigator`'s plugin libraries. No
-`libnav2_reactive_fallback_bt_node.so` exists in `/opt/ros/humble/lib` — all
+`libnav2_reactive_fallback_bt_node.so` exists in `/opt/ros/humble/lib`, all
 thirteen other entries do. `ReactiveFallback` is a BT.CPP built-in, not a nav2
 plugin library. `bt_navigator` calls `registerFromPlugin` on each name, so
 `on_configure` fails and `lifecycle_manager` cannot bring the stack up. This
@@ -88,7 +88,7 @@ finds zero publishers, zero subscribers and zero remappings. The only textual
 occurrences are three comments in `go2_gait_controller/scripts/hw_bridge.py`
 (`:134`, `:135`, `:137`) describing an integration that was never written.
 
-Had Nav2 come up, `nav2_velocity_smoother` would have published `/cmd_vel` —
+Had Nav2 come up, `nav2_velocity_smoother` would have published `/cmd_vel`,
 into a topic with no subscriber.
 
 ### 5. Who consumes `/cmd_vel`?
@@ -109,7 +109,7 @@ authority over anything.
 
 ### 7. Can any component bypass safety and directly command the GO2?
 
-**Yes — every actuation path bypassed it, because there was nothing inline to
+**Yes, every actuation path bypassed it, because there was nothing inline to
 bypass.** Two paths existed:
 
 **Path A, Sport API.** `ros2 topic pub /go2/gait_command` →
@@ -130,7 +130,7 @@ launch files leave that default on.
 
 Neither path was reachable from `go2_full.launch.py`, whose
 `LaunchDescription` (`:204-216`) contains no gait controller and no bridge.
-And neither was reachable from its own launch file either — see question 8.
+And neither was reachable from its own launch file either, see question 8.
 
 ### 8. What does `hw_bridge.py` actually do today?
 
@@ -149,7 +149,7 @@ through any launch file as committed.**
 
 **Its `/lowcmd` output would have been rejected by the robot.**
 `unitree_go/msg/LowCmd` requires `head = (0xFE, 0xEF)`, `level_flag = 0xFF`,
-and a `crc` recomputed over the packed struct before every publish — Unitree's
+and a `crc` recomputed over the packed struct before every publish, Unitree's
 own `go2_stand_example.cpp` does exactly this. `hw_bridge.py:181-202`
 default-initialises the message (`head` zero, `level_flag` zero, `crc` zero)
 and fills only twelve of twenty `motor_cmd` entries. There is no CRC
@@ -182,15 +182,15 @@ The upgraded stack commits to the **Sport API** and says why in
 
 Yes, and it was reused rather than rewritten:
 
-* **`go2_safety_monitor`'s depth analysis** — stair, drop, narrow-passage and
+* **`go2_safety_monitor`'s depth analysis**, stair, drop, narrow-passage and
   proximity detection. Sound perception work. It was promoted from an ignored
   observer into the arbiter's hazard input.
 * **`go2_perception`'s YOLO detection and back-projection**, and
-  **`go2_audio_perception`'s GCC-PHAT bearing estimation** — kept unchanged.
-* **`go2_msgs`** — extended, not replaced.
-* **`go2_intent_grounding`'s confirmation-frames concept** — kept; the scoring
+  **`go2_audio_perception`'s GCC-PHAT bearing estimation**, kept unchanged.
+* **`go2_msgs`**, extended, not replaced.
+* **`go2_intent_grounding`'s confirmation-frames concept**, kept; the scoring
   underneath it was replaced.
-* **`go2_gait_controller`'s C++ gait state machine** — retained for
+* **`go2_gait_controller`'s C++ gait state machine**, retained for
   simulation. Only its hardware bridge was removed.
 
 ---
@@ -211,18 +211,18 @@ driver, model or device.
   `publish_rate_hz`, `energy_threshold`
 * **Launched by** `go2_full.launch.py:79`; `nemo_integration.launch.py`
 * **HW deps** `pyaudio` + a live 4-channel input device, opened in
-  `__init__` — the constructor throws with no microphone
+  `__init__`, the constructor throws with no microphone
 * **Tests** `test_gcc_phat.py`, pure-function only (`rclpy`/`pyaudio` mocked)
 
 ### `nemo_asr_node`
 * **Package/exec** `go2_audio_perception` / `nemo_asr_node`
 * **Subscribes** `/go2/audio/mono_raw` · **Publishes** `/go2/audio/transcript`
-  — **no subscriber anywhere**
+ , **no subscriber anywhere**
 * **Launched by** `nemo_integration.launch.py` only; not in `go2_full`
 * **HW deps** `nemo.collections.asr`, `torch`; downloads a checkpoint at construct
 * **Tests** none
 * **Defect** a worker thread calls `rclpy.spin_once` while `main` also spins
-  the node — a concurrent-spin hazard
+  the node, a concurrent-spin hazard
 
 ### `perception_node`
 * **Package/exec** `go2_perception` / `perception_node`
@@ -236,14 +236,14 @@ driver, model or device.
   `/camera/camera/...`; these subscriptions would receive nothing as launched
 * **Defect (intrinsics)** consumes *unaligned* depth while back-projecting
   with *color* intrinsics, biasing every 3D pose by the depth-to-color
-  extrinsic — even though the launch file enables `align_depth`
+  extrinsic, even though the launch file enables `align_depth`
 
 ### `safety_monitor_node`
 * **Package/exec** `go2_safety_monitor` / `safety_monitor_node`
 * **Subscribes** `/camera/depth/image_rect_raw`, `/camera/depth/camera_info`
   (same namespace defect)
 * **Publishes** `/go2/safety_alert`, `/go2/safety_state`,
-  `/go2/safety/visualization` — **no in-repo subscriber for any**
+  `/go2/safety/visualization`, **no in-repo subscriber for any**
 * **Tests** none
 * **Defect** claims Nav2 responds to its alerts; nothing does
 
@@ -291,7 +291,7 @@ for each live in `go2_intent_grounding/test/`.
 ### A goal could be published with no voice request
 
 `voice_callback` (`:78-88`) was the only consumer of `/go2/voice_command`, and
-it only ever *reset* state — `target_locked = False`,
+it only ever *reset* state, `target_locked = False`,
 `consecutive_confirmations = 0`. It set no enabling flag and gated nothing.
 
 `humans_callback` incremented the confirmation count purely on detections and
@@ -315,9 +315,9 @@ an arm.
 `math.atan2(pose.position.x, pose.position.z)` at `:104` is
 **clockwise-positive**.
 
-`audio_perception_node` asserts the REP-103 body convention for its bearing —
+`audio_perception_node` asserts the REP-103 body convention for its bearing,
 it publishes the matching unit vector as `x=cos(az), y=sin(az)` in
-`base_link` — which is **counter-clockwise-positive**.
+`base_link`, which is **counter-clockwise-positive**.
 
 `compute_audio_score` took a bare scalar difference between them. A caller
 15° to the robot's **left** reads as −15° visually and +15° acoustically: 30°
@@ -348,7 +348,7 @@ which is not something a parameter named `bearing_tolerance_deg` can honestly
 describe.
 
 The same arithmetic made the **visual-only fallback** require
-`0.65 / 0.7 = 0.9286` detection confidence — against a detector configured to
+`0.65 / 0.7 = 0.9286` detection confidence, against a detector configured to
 accept 0.5. The fallback almost never fell back.
 
 And it made **disagreeing audio worse than absent audio**: with audio fresh
@@ -381,7 +381,7 @@ Four files, 28 tests, **all pure-function**.
 `launch_testing` test, no state-machine test, no message round-trip test and no
 integration test. Untested entirely: the confirmation state machine and its TF
 path, `perception_node`, `safety_monitor_node`, the C++ gait state machine, and
-`hw_bridge.py`'s `LowCmd` construction — that is, every actuation-relevant and
+`hw_bridge.py`'s `LowCmd` construction, that is, every actuation-relevant and
 every safety-relevant code path.
 
 The mocking had a second cost discovered during the upgrade: because those

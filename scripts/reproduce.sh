@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# reproduce.sh — clean-workspace reproduction of every claim in this repository.
+# reproduce.sh, clean-workspace reproduction of every claim in this repository.
 #
 #   ./scripts/reproduce.sh
 #
@@ -43,7 +43,7 @@ export ROS_DOMAIN_ID="${ROS_DOMAIN_ID_OVERRIDE:-$(( 40 + ($$ % 55) ))}"
 export ROS_LOCALHOST_ONLY=1
 
 echo "=============================================================="
-echo " GO2 seeing-eye-dog — clean reproduction"
+echo " GO2 seeing-eye-dog, clean reproduction"
 echo "=============================================================="
 echo " repo            : $REPO_ROOT"
 echo " ROS distro      : $ROS_DISTRO_NAME"
@@ -85,7 +85,7 @@ echo
 # are present in the install space. Building a subset leaves it unsatisfiable.
 #
 # Building the perception packages does not require their runtime dependencies
-# (pyaudio, ultralytics, whisper) — setup.py does not import them. Only running
+# (pyaudio, ultralytics, whisper), setup.py does not import them. Only running
 # their nodes does, which is why the tests skip them.
 echo "── Building the full workspace ──────────────────────────────"
 colcon build --symlink-install
@@ -151,7 +151,7 @@ echo
 
 echo "=============================================================="
 if [[ $STATUS -eq 0 ]]; then
-  echo " PASS — all tests green on isolated domain $ROS_DOMAIN_ID"
+  echo " PASS, all tests green on isolated domain $ROS_DOMAIN_ID"
   echo
   echo " What this run does and does not establish:"
   echo "   PROVEN : the safety arbiter holds final motion authority, and no"
@@ -159,7 +159,7 @@ if [[ $STATUS -eq 0 ]]; then
   echo "   NOT PROVEN : anything about physical GO2 hardware. Every actuation"
   echo "            in this run went to DryRunGo2Bridge. No robot was moved."
 else
-  echo " FAIL — see output above"
+  echo " FAIL, see output above"
 fi
 echo "=============================================================="
 exit $STATUS

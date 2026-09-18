@@ -209,7 +209,7 @@ described as working.**
   depends on the physical microphone ordering, which is undocumented in code.
   Confirming this requires a bench test with a known source direction. If it is
   inverted, the fusion association gate will systematically reject the correct
-  caller — the same class of failure that was just fixed, one layer upstream.
+  caller, the same class of failure that was just fixed, one layer upstream.
 
 * **The `0.8 m` goal tolerance.** Chosen as a social distance for an assistive
   robot approaching a person. Not evaluated with any user.
@@ -293,8 +293,8 @@ Defensible, in these words:
 
 > A safety-authoritative architecture for assistive quadruped navigation, in
 > which a deterministic fail-closed arbiter holds exclusive authority over
-> actuation on a trusted control network. Authority is enforced structurally —
-> the actuator's input is a message type no planner can produce — rather than
+> actuation on a trusted control network. Authority is enforced structurally,
+> the actuator's input is a message type no planner can produce, rather than
 > by convention, and is demonstrated by runtime integration tests that show
 > planner output being bounded, hazard-stopped, and cut off entirely when the
 > safety process dies. An independent adversarial audit of the design is

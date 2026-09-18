@@ -20,7 +20,7 @@ convention for its bearing (it publishes the matching unit vector with
 
 So a caller 15° to the robot's left is ``-15°`` in the camera convention and
 ``+15°`` in the body convention.  Subtracting one from the other yields 30°
-of apparent disagreement for a perfectly agreeing pair — and beyond the
+of apparent disagreement for a perfectly agreeing pair, and beyond the
 25° gate, the correct match is rejected while its mirror image is accepted.
 That is the sign error this module removes.
 

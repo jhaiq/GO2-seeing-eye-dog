@@ -1,7 +1,7 @@
 """
 Pure geometry for the staged approach controller.
 
-No ROS, no TF, no I/O — just "given the goal expressed in the robot's own
+No ROS, no TF, no I/O, just "given the goal expressed in the robot's own
 frame, what body velocity moves toward it?".  Kept separate so the control
 law is testable without a ROS graph and so it can be deleted wholesale when
 Nav2 takes over without touching anything else.

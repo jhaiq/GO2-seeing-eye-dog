@@ -87,7 +87,7 @@ def ros_context():
 
     Isolation instead comes from ``ROS_DOMAIN_ID``, pinned to a value derived
     from the process ID. A test therefore cannot discover a node belonging to
-    another process, another test run, or a graph the developer left running —
+    another process, another test run, or a graph the developer left running,
     which is the failure mode where a test passes for the wrong reason.
     """
     if not ROS_AVAILABLE:
@@ -176,12 +176,12 @@ def graph(ros_context):
 
 #: Rotation from ``base_link`` (REP-103: x forward, y left, z up) to a camera
 #: optical frame (REP-105: x right, y down, z forward), as (x, y, z, w).
-#: Equivalent to roll=-pi/2, pitch=0, yaw=-pi/2 — the standard ROS
+#: Equivalent to roll=-pi/2, pitch=0, yaw=-pi/2, the standard ROS
 #: camera_link -> camera_optical_frame rotation.
 #:
 #: Tests use the real rotation rather than identity on purpose. With an
 #: identity transform a detection 4 m in front of the camera arrives in
-#: base_link as (0, 0, 4) — four metres straight UP — and a controller that
+#: base_link as (0, 0, 4), four metres straight UP, and a controller that
 #: reads x and y sees a goal at the origin and reports "goal reached" without
 #: moving. That would make an end-to-end test pass while proving nothing.
 OPTICAL_FROM_BODY_QUAT = (-0.5, 0.5, -0.5, 0.5)
@@ -265,5 +265,5 @@ def mock_missing_modules(names):
             continue
         try:
             importlib.import_module(name)
-        except Exception:  # noqa: BLE001 — any import failure means "absent"
+        except Exception:  # noqa: BLE001, any import failure means "absent"
             sys.modules[name] = MagicMock()

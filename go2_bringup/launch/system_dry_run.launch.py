@@ -1,12 +1,12 @@
 """
-system_dry_run.launch.py — the full decision stack with no hardware at all.
+system_dry_run.launch.py, the full decision stack with no hardware at all.
 
     ros2 launch go2_bringup system_dry_run.launch.py
 
 Identical to ``system.launch.py`` except that hardware-dependent perception is
 disabled and the actuation adapter is the recording dry-run bridge. Everything
-between — caller confirmation, intent grounding, goal emission, the candidate
-controller, and the safety arbiter — is the SAME CODE that runs on the robot.
+between, caller confirmation, intent grounding, goal emission, the candidate
+controller, and the safety arbiter, is the SAME CODE that runs on the robot.
 That is the point: this variant exercises the real decision path, not a
 simulation of it.
 

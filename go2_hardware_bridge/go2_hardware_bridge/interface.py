@@ -4,7 +4,7 @@ The hardware adapter contract.
 The ROS node in ``hardware_bridge_node.py`` knows nothing about Unitree.  It
 talks to a ``HardwareBridgeInterface``.  That separation is what lets the
 identical navigation and safety stack run against a dry-run adapter and
-against the physical robot (Invariant E) — only the adapter differs.
+against the physical robot (Invariant E), only the adapter differs.
 
 An adapter is responsible ONLY for transport.  It performs no safety
 decisions: by the time a velocity reaches an adapter it has already been
@@ -50,7 +50,7 @@ class HardwareBridgeInterface(abc.ABC):
     Implementations MUST:
 
     * be safe to call ``send_zero()`` on at any time, including before
-      ``connect()`` and after ``shutdown()`` — a stop must never fail because
+      ``connect()`` and after ``shutdown()``, a stop must never fail because
       of lifecycle state;
     * return ``False`` rather than raise from ``send_velocity`` when a single
       transmission fails, so the node can count failures and stop;
@@ -74,7 +74,7 @@ class HardwareBridgeInterface(abc.ABC):
         Transmit a body velocity (REP-103, base_link).
 
         Returns True if the command was handed to the transport successfully.
-        A True return means "transmitted", NOT "the robot moved" — no adapter
+        A True return means "transmitted", NOT "the robot moved", no adapter
         may claim physical confirmation it does not have.
         """
 
@@ -98,8 +98,8 @@ class HardwareBridgeInterface(abc.ABC):
         """
         Called by the bridge on every control cycle, command or not.
 
-        Default is a no-op. Adapters whose transport has LATCHING semantics —
-        where the robot keeps executing the last command until told otherwise —
+        Default is a no-op. Adapters whose transport has LATCHING semantics,
+        where the robot keeps executing the last command until told otherwise,
         must override this to enforce their own command-hold timeout. Without
         it, the bridge's control loop stalling (as distinct from the arbiter's)
         leaves the robot executing its last velocity indefinitely.
@@ -118,5 +118,5 @@ class HardwareBridgeInterface(abc.ABC):
         """
         try:
             self.send_zero()
-        except Exception:  # noqa: BLE001 — shutdown must not raise
+        except Exception:  # noqa: BLE001, shutdown must not raise
             pass

@@ -156,7 +156,7 @@ class TestH3AuthorityHandoverIsReachable:
 
 class TestM1MalformedCommandsAreRefused:
     """
-    M1: 201 of 201 structurally malformed commands were accepted — empty
+    M1: 201 of 201 structurally malformed commands were accepted, empty
     `frame_id`, a garbage reason-code vocabulary, `EMERGENCY_STOP` in the
     reasons alongside `SAFE_TO_MOVE`, and a `valid_until` in the year 2038.
     """

@@ -169,7 +169,7 @@ class SafetyArbiterCore:
         decision = core.evaluate(candidate, context, now)
 
     ``evaluate`` must be called on a fixed control period even when no
-    candidate has arrived — that is how the watchdog fires.  Pass
+    candidate has arrived, that is how the watchdog fires.  Pass
     ``candidate=None`` in that case.
     """
 
@@ -246,7 +246,7 @@ class SafetyArbiterCore:
         """Authorize, modify or suppress ``candidate``. Never raises."""
         try:
             decision = self._evaluate_inner(candidate, context, now)
-        except Exception:  # noqa: BLE001 — a failing rule must stop the robot
+        except Exception:  # noqa: BLE001, a failing rule must stop the robot
             decision = self._stop(
                 SafetyState.STOPPED,
                 [Reason.RULE_EVALUATION_FAILED],

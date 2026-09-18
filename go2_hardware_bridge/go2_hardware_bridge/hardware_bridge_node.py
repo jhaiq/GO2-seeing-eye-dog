@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-HardwareBridgeNode — the only process permitted to actuate the GO2.
+HardwareBridgeNode, the only process permitted to actuate the GO2.
 
 Contract
 --------
@@ -22,7 +22,7 @@ being wrong, absent, restarted, or duplicated*:
 * **Independent watchdog.**  A timer running at the bridge's own rate stops
   the robot when no accepted command has arrived within
   ``watchdog_timeout_sec``.  This fires whether the arbiter crashed, hung, was
-  killed, or lost network — the bridge never needs to be told.
+  killed, or lost network, the bridge never needs to be told.
 * **Independent expiry.**  Each command carries ``valid_until``.  A command
   is refused at or after that time even if it arrived a moment ago.
 * **Authority latching.**  The bridge latches the first ``authority_token``
@@ -316,7 +316,7 @@ class HardwareBridgeNode(Node):
             # come from an arbiter at all.
             reasons.append(Reason.COMMAND_EXPIRED)
 
-        # Header freshness — independent of valid_until.
+        # Header freshness, independent of valid_until.
         stamp = msg.header.stamp.sec + msg.header.stamp.nanosec / 1e9
         if stamp <= 0.0:
             reasons.append(Reason.COMMAND_EXPIRED)
@@ -543,7 +543,7 @@ def main(args=None) -> None:
     ``ExternalShutdownException`` is handled explicitly. Without it, a SIGTERM
     during ``spin`` (which is how launch stops a node, and how Ctrl-C reaches
     one) invalidates the rcl context underneath the executor and raises
-    ``RCLError: failed to initialize wait set`` from inside ``spin`` — before
+    ``RCLError: failed to initialize wait set`` from inside ``spin``, before
     the ``finally`` block can run ``destroy_node``. For the bridge, that
     would mean the adapter never being told to stop, leaving a physical robot to
     coast on its last command until its own controller times out.

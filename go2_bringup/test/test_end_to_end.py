@@ -4,9 +4,9 @@ between them.
 
 Every node in this test is the real one. Only the two ends are synthetic: the
 perception inputs (a bag or a camera would supply them on the robot) and the
-hardware adapter (a GO2 would supply that). Everything between — fusion,
+hardware adapter (a GO2 would supply that). Everything between, fusion,
 caller confirmation, intent grounding, goal emission, the candidate
-controller, and the safety arbiter — is production code running in a real ROS
+controller, and the safety arbiter, is production code running in a real ROS
 graph.
 
 The test proves two things:

@@ -12,8 +12,8 @@ scripts, and no obligation to be fair. It found the claim, as originally
 stated, **false**. Five paths delivered non-zero velocity to the hardware
 adapter without arbiter authorization, four demonstrated end to end.
 
-This document records every finding, what was done about it, and — for the
-ones that remain open — exactly what the system does and does not guarantee.
+This document records every finding, what was done about it, and, for the
+ones that remain open, exactly what the system does and does not guarantee.
 Findings are not softened. An audit whose findings are edited to match what
 was convenient to fix is worse than no audit.
 
@@ -23,12 +23,12 @@ was convenient to fix is worse than no audit.
 
 | # | Finding | Severity | Status |
 |---|---|---|---|
-| C1 | Any process on the DDS domain can publish `SafeVelocityCommand` | CRITICAL | **OPEN** — bounded and documented |
+| C1 | Any process on the DDS domain can publish `SafeVelocityCommand` | CRITICAL | **OPEN**, bounded and documented |
 | C2 | First-come-first-served authority latch; an attacker can lock the real arbiter out | CRITICAL | **PARTIALLY MITIGATED** |
 | C3 | A stalled `/clock` freezes every watchdog; the robot keeps walking | CRITICAL | **FIXED** |
 | C4 | SIGKILL of the bridge leaves the GO2 walking on a latched `Move` | CRITICAL | **FIXED** |
 | C5 | Hazard context spoofable; a `String` overrode a real `EMERGENCY_STOP` | CRITICAL | **FIXED** |
-| H1 | Unauthenticated `release_estop` service | HIGH | **OPEN** — bounded and documented |
+| H1 | Unauthenticated `release_estop` service | HIGH | **OPEN**, bounded and documented |
 | H2 | Every safety bound unbounded above (`max_vx:=100` accepted) | HIGH | **FIXED** |
 | H3 | Authority handover was dead code; one packet bricked motion permanently | HIGH | **FIXED** |
 | H4 | Two `ros2 topic pub` commands drove the robot at the full envelope | HIGH | **PARTIALLY FIXED** |
@@ -38,8 +38,8 @@ was convenient to fix is worse than no audit.
 | M4 | `require_initial_inputs` documented, declared, never implemented | MEDIUM | **FIXED** |
 | L1 | `go2_gait_controller` auto-activation | LOW | Accepted; terminates at an unconsumed topic |
 
-**Three of the five CRITICAL findings — C3, C4 and H2's stale-command
-persistence — required no attacker at all.** They were reachable by a paused
+**Three of the five CRITICAL findings, C3, C4 and H2's stale-command
+persistence, required no attacker at all.** They were reachable by a paused
 simulator, a killed process, and a typo on a command line respectively. Those
 are fixed.
 
@@ -52,7 +52,7 @@ than to invent a mitigation that only looks like one.
 
 ## Fixed
 
-### C3 — a stalled clock froze every watchdog
+### C3, a stalled clock froze every watchdog
 
 **The finding.** With `use_sim_time` enabled, both `_now()` and every
 `create_timer` drew from `/clock`. Freezing `/clock` froze the bridge's
@@ -79,12 +79,12 @@ safety timing is unaffected.
 
 *Regression:* `test_arbiter_audit_regressions.py::TestC3WatchdogsUseSteadyTime`.
 
-### C4 — a killed bridge left the robot walking
+### C4, a killed bridge left the robot walking
 
 **The finding.** `destroy_node` was the only stop-on-exit path, and SIGKILL
 does not run it. For `DryRunGo2Bridge` that is a missing log line. For
 `UnitreeSportBridge` the last thing on `/api/sport/request` is
-`Move(0.4, 0, 0)` — and Sport API `Move` **latches**: the onboard controller
+`Move(0.4, 0, 0)`, and Sport API `Move` **latches**: the onboard controller
 executes it until it receives another command or a `StopMove`. Nothing in the
 repository would ever send one.
 
@@ -115,7 +115,7 @@ the fix depends on the GO2 honouring `StopMove`. An out-of-process supervisor
 (systemd `WatchdogSec` issuing `StopMove` + `Damp` on bridge death) is the
 belt-and-braces version and is not implemented.
 
-### C5 — a `std_msgs/String` cancelled a real emergency stop
+### C5, a `std_msgs/String` cancelled a real emergency stop
 
 **The finding.** `_alert_cb` (from `/go2/safety_alert`) and `_safety_state_cb`
 (from `/go2/safety_state`) both wrote the same `self._hazard_type`. Last writer
@@ -127,7 +127,7 @@ purely by arriving more often.
 
 **The fix.** The channels are tracked separately and resolved by
 **most-restrictive-wins**, with an explicit severity ranking in which an
-*unrecognised* alert type ranks above `CLEAR` — so a new hazard type the
+*unrecognised* alert type ranks above `CLEAR`, so a new hazard type the
 arbiter has not been taught about can never be outvoted. Stop-class hazards
 additionally latch for `hazard_clear_hold_sec` (0.5 s), so a single dropped or
 flapping frame cannot re-permit motion.
@@ -135,7 +135,7 @@ flapping frame cannot re-permit motion.
 *Regression:* `test_arbiter_audit_regressions.py::TestC5HazardChannelsAreResolvedBySeverity`,
 which executes the original exploit.
 
-### H2 — every safety bound was unbounded above
+### H2, every safety bound was unbounded above
 
 **The finding.** `limits.py` validated only "positive and finite". Demonstrated:
 
@@ -152,7 +152,7 @@ The auditor correctly flagged that
 `docs/target_runtime_architecture.md` claimed "the most permissive reachable
 configuration still clamps, rate-limits, and enforces both watchdogs." It
 clamped at 100 m/s and enforced watchdogs at 10⁵ s. **That sentence was false
-and has been corrected**, not merely made true — both were needed.
+and has been corrected**, not merely made true, both were needed.
 
 **The fix.** Hard ceilings compiled into `limits.py`
 (`MAX_ALLOWED_VX = 1.5`, `MAX_ALLOWED_WATCHDOG_SEC = 2.0`, and so on) raising
@@ -165,7 +165,7 @@ The `safe_command_lifetime_sec` ceiling also closes M2's overflow path.
 
 *Regression:* `test_arbiter_audit_regressions.py::TestH2ParametersAreBounded`.
 
-### H3 — authority handover was dead code
+### H3, authority handover was dead code
 
 **The finding.** The handover branch required
 `now - self._last_stop_time >= authority_handover_quiet_sec`, but every idle
@@ -173,7 +173,7 @@ tick called `_stop`, and `_stop` refreshed `_last_stop_time`. At 50 Hz the
 measured quiet period never exceeded 0.02 s against a 1.0 s requirement.
 
 **The branch could never be taken.** Consequences: a legitimate arbiter that
-crashed and respawned could never reclaim authority — the robot was immobilised
+crashed and respawned could never reclaim authority, the robot was immobilised
 until the bridge itself was restarted. Combined with the sequence check, a
 single message carrying `sequence = 2**64 - 1` latched a value nothing could
 exceed: **one packet, permanent motion lockout.**
@@ -186,7 +186,7 @@ are refused.
 
 *Regression:* `test_bridge_audit_regressions.py::TestH3AuthorityHandoverIsReachable`.
 
-### M1 — structurally malformed commands were accepted
+### M1, structurally malformed commands were accepted
 
 **The finding.** 201 of 201 accepted, carrying an empty `frame_id`, a garbage
 reason-code vocabulary including `"\x00GARBAGE"`, `EMERGENCY_STOP` among the
@@ -200,11 +200,11 @@ trustworthy one.
 
 *Regression:* `test_bridge_audit_regressions.py::TestM1MalformedCommandsAreRefused`.
 
-### M2 — an exception in the timer killed the arbiter
+### M2, an exception in the timer killed the arbiter
 
 **The finding.** `core.evaluate` was exception-guarded, on the stated principle
 that "a crashing rule must never leave the robot moving". But `_tick` and
-`_publish_safe` were not, so a raise there killed the process — and the stop
+`_publish_safe` were not, so a raise there killed the process, and the stop
 was not published either. The guarantee was real one level down and absent one
 level up.
 
@@ -214,7 +214,7 @@ gained the same treatment.
 
 *Regression:* `test_arbiter_audit_regressions.py::TestM2ATickExceptionStillStops`.
 
-### M3 — the physical adapter could never report a failure
+### M3, the physical adapter could never report a failure
 
 **The finding.** DDS `publish()` on a fire-and-forget topic does not raise when
 nobody is subscribed, so `send_velocity` returned `True` unconditionally and
@@ -231,7 +231,7 @@ adapter's `connect()` fails.
 *Regression:*
 `test_bridge_audit_regressions.py::test_the_unitree_adapter_reports_failure_with_no_subscriber`.
 
-### M4 — a documented safety feature was never implemented
+### M4, a documented safety feature was never implemented
 
 **The finding.** `require_initial_inputs` was documented at length, declared,
 and never read. `Reason.NOT_INITIALIZED` and `Reason.NO_COMMAND` were defined
@@ -242,7 +242,7 @@ silence, because it is load-bearing for someone's trust.
 
 **The fix.** Implemented. The arbiter now refuses to authorize motion until
 every required input has been observed at least once since startup, reporting
-`NOT_INITIALIZED` — which is distinct from `SAFETY_CONTEXT_STALE`. "Never
+`NOT_INITIALIZED`, which is distinct from `SAFETY_CONTEXT_STALE`. "Never
 arrived" usually means a node was not started; "aged out" is a transient. The
 reason codes now tell them apart.
 
@@ -252,7 +252,7 @@ reason codes now tell them apart.
 
 ## Partially fixed
 
-### H4 — two shell commands drove the robot at the full envelope
+### H4, two shell commands drove the robot at the full envelope
 
 **The finding.** Against the canonical launch, unmodified:
 
@@ -280,7 +280,7 @@ hazard-forging half.
 stock `geometry_msgs/Twist` from anything on the domain. This is C1 in a
 different costume and needs the same answer.
 
-### C2 — the authority latch trusts whoever speaks first
+### C2, the authority latch trusts whoever speaks first
 
 **The finding.** The bridge latched the first token it saw. With the bridge up
 and the legitimate arbiter starting two seconds later, the attacker owned the
@@ -307,8 +307,8 @@ eventually satisfies the quiet condition, which permits the takeover. Denial of
 service converts into takeover.
 
 That chain is recorded here rather than papered over. The regression test is
-deliberately scoped to the guarantee that does hold — a second token cannot take
-over a robot that is *currently moving* — and its docstring says why. A test
+deliberately scoped to the guarantee that does hold, a second token cannot take
+over a robot that is *currently moving*, and its docstring says why. A test
 asserting more than the code provides would be worse than no test.
 
 The real fix is transport-level authentication. A tighter timer is not a fix.
@@ -323,22 +323,22 @@ same privileges as the arbiter. No in-band token, sequence number or message
 type changes that, because every one of them is forgeable by a process that can
 already publish.
 
-### C1 — any process can publish `SafeVelocityCommand`
+### C1, any process can publish `SafeVelocityCommand`
 
 Demonstrated with a 70-line script and no arbiter running at all: 138 non-zero
 commands delivered to the adapter.
 
 The custom message type is an **anti-footgun, not an access control**. It
 reliably stops a misconfigured controller, a stray `ros2 topic pub` of a
-`Twist`, and a copy-paste error — the auditor confirmed all three fail
+`Twist`, and a copy-paste error, the auditor confirmed all three fail
 correctly. It does not stop anything that decides to construct the right type.
 
-### H1 — `release_estop` is unauthenticated
+### H1, `release_estop` is unauthenticated
 
 The service's docstring argued that release must be "an addressed,
 acknowledged request, not a fire-and-forget message that any process can
 broadcast". That reasoning is sound about topics and **wrong about services
-without SROS2**: a ROS 2 service is exactly as open as a topic. Demonstrated —
+without SROS2**: a ROS 2 service is exactly as open as a topic. Demonstrated,
 a latched e-stop was released from a shell and motion resumed within 0.22 s.
 
 The topic/service asymmetry is still worth keeping: it prevents an *accidental*
@@ -353,8 +353,8 @@ plus a physical e-stop the software cannot clear. That is a deployment-level
 change, not a code change, and it is listed under "Planned" in
 `docs/research_system_claims.md`.
 
-Until then, the honest claim — and the one the README and the architecture
-document now make — is bounded:
+Until then, the honest claim, and the one the README and the architecture
+document now make, is bounded:
 
 > Every movement command produced by the in-tree controller passes through a
 > deterministic, fail-closed arbiter, **on a trusted single-host DDS domain**.
@@ -367,7 +367,7 @@ Negative results are evidence, and several of these are load-bearing.
 
 | Attack | Result |
 |---|---|
-| `ros2 topic pub /cmd_vel_safe geometry_msgs/msg/Twist` (86 messages) | **0** adapter records. `Publisher count: 0` — the RMW refused to create the publisher at all. Invariant A's type argument holds. |
+| `ros2 topic pub /cmd_vel_safe geometry_msgs/msg/Twist` (86 messages) | **0** adapter records. `Publisher count: 0`, the RMW refused to create the publisher at all. Invariant A's type argument holds. |
 | BEST_EFFORT publisher against the bridge's RELIABLE subscriber | **0** adapter records. QoS incompatibility fails in the safe direction. |
 | Sequence replay (200 messages, same sequence) | 1 accepted, then `SEQUENCE_REGRESSION` throughout. |
 | Over-limit candidate (5.0 / 5.0 / 5.0) at default config | Clamped to 0.4 / 0.2 / 0.6 and slew-limited. The core limit logic is sound. |
@@ -381,7 +381,7 @@ Negative results are evidence, and several of these are load-bearing.
 The original claim was unqualified. It is now bounded by a trust assumption
 that is stated wherever the claim appears.
 
-Three of the five critical findings needed no adversary — a paused simulator, a
+Three of the five critical findings needed no adversary, a paused simulator, a
 killed process, a mistyped parameter. Those are the ones that would have bitten
 an honest user on a first hardware session, and they are fixed. The ones that
 remain need an adversary on the robot's own DDS domain, and closing them is a
@@ -389,7 +389,7 @@ deployment decision (SROS2) rather than a code change.
 
 The single most useful thing this audit produced is not any individual finding.
 It is the demonstration that **a safety mechanism which depends on a signal the
-rest of the system can stop publishing is not independent** — C3 — and that
+rest of the system can stop publishing is not independent**, C3, and that
 **a dry-run harness cannot detect a hazard that only exists in the transport it
-replaces** — C4. Both are now written into the code at the point where someone
+replaces**, C4. Both are now written into the code at the point where someone
 would otherwise reintroduce them.

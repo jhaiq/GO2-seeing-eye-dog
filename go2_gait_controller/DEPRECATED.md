@@ -1,4 +1,4 @@
-# `go2_gait_controller` — superseded actuation path
+# `go2_gait_controller`, superseded actuation path
 
 ## Status: the hardware bridge in this package has been REMOVED
 
@@ -23,12 +23,12 @@ Independent of the architecture, the removed code could not have worked:
   `lib/${PROJECT_NAME}`. `install(DIRECTORY)` without `USE_SOURCE_PERMISSIONS`
   also stripped the executable bit. `gait_hw_launch.py` would have raised
   `ExecutableNotFound` at launch-description build time, aborting the whole
-  launch — including the gait controller listed beside it.
+  launch, including the gait controller listed beside it.
 
 * **Its `/lowcmd` path would have been rejected by the robot.** It built a
   `unitree_go/msg/LowCmd` with a default-initialised header: `head` left as
   `(0, 0)` instead of `(0xFE, 0xEF)`, `level_flag` left as `0` instead of
-  `0xFF`, and — decisively — `crc` left as `0`. Unitree's own reference
+  `0xFF`, and, decisively, `crc` left as `0`. Unitree's own reference
   implementation recomputes the CRC over the packed struct before every
   publish. There is no CRC computation anywhere in this repository.
 

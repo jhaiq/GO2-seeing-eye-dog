@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# test.sh — run the test suite.
+# test.sh, run the test suite.
 #
 # Without ROS on the path this runs the pure-function tests only; the
 # node, integration and launch tests skip themselves (see conftest.py's

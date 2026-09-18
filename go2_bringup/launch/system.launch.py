@@ -1,5 +1,5 @@
 """
-system.launch.py — the canonical entrypoint for the GO2 seeing-eye-dog stack.
+system.launch.py, the canonical entrypoint for the GO2 seeing-eye-dog stack.
 
     ros2 launch go2_bringup system.launch.py
 
@@ -22,7 +22,7 @@ Arguments
     ``nav2``    the real Nav2 stack (go2_navigation/launch/navigation.launch.py),
                 with its unstamped ``cmd_vel`` remapped
                 into the candidate inlet so it can never reach the bridge.
-                Requires a map, localization, odometry, TF and a laser scan —
+                Requires a map, localization, odometry, TF and a laser scan,
                 see docs/target_runtime_architecture.md before using it.
 
 ``localization``    none | slam_mapping | slam_localization   (default: none)
@@ -187,7 +187,7 @@ def _nav2_group(log_level):
     The remapping ``cmd_vel -> /cmd_vel_candidate_unstamped`` is the entire
     integration. Nav2 believes it is driving the robot; it is driving the
     arbiter's inlet. Because the bridge consumes a different message type,
-    even removing this remapping would not connect Nav2 to the hardware — it
+    even removing this remapping would not connect Nav2 to the hardware, it
     would connect Nav2 to nothing.
     """
     condition = IfCondition(

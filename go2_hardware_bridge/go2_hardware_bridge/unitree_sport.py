@@ -1,5 +1,5 @@
 """
-UnitreeSportBridge — velocity transport to a physical GO2 via the Sport API.
+UnitreeSportBridge, velocity transport to a physical GO2 via the Sport API.
 
 STATUS: IMPLEMENTED, NEVER EXECUTED AGAINST HARDWARE BY THIS REPOSITORY.
 
@@ -17,7 +17,7 @@ The Sport API's ``Move`` is a LATCHING command: the onboard controller keeps
 executing the last velocity it was given until it receives another one or a
 ``StopMove``. That makes the obvious implementation dangerous. If this bridge
 is SIGKILLed, or its host loses power, or the process is OOM-killed, no
-shutdown handler runs — and the last thing the robot heard was
+shutdown handler runs, and the last thing the robot heard was
 ``Move(0.4, 0, 0)``. It walks away.
 
 So this adapter does **not** treat ``send_velocity`` as "transmit when the
@@ -95,8 +95,8 @@ class UnitreeSportBridge(HardwareBridgeInterface):
         discovery_timeout_sec: float = 10.0,
     ) -> None:
         try:
-            from unitree_api.msg import Request  # noqa: PLC0415 — optional dependency
-        except ImportError as exc:  # pragma: no cover — requires GO2 SDK
+            from unitree_api.msg import Request  # noqa: PLC0415, optional dependency
+        except ImportError as exc:  # pragma: no cover, requires GO2 SDK
             raise HardwareBridgeError(
                 "unitree_api is not importable, so UnitreeSportBridge cannot be "
                 "constructed. Install the Unitree ROS 2 SDK "
@@ -222,7 +222,7 @@ class UnitreeSportBridge(HardwareBridgeInterface):
             )
         try:
             snapshot.connected = self._pub.get_subscription_count() > 0
-        except Exception:  # noqa: BLE001 — health() must not raise
+        except Exception:  # noqa: BLE001, health() must not raise
             snapshot.connected = False
         return snapshot
 
@@ -254,7 +254,7 @@ class UnitreeSportBridge(HardwareBridgeInterface):
                     self._health.state = BridgeState.DISCONNECTED
                     self._health.detail = f"no subscriber on {self._topic}"
                 return False
-        except Exception:  # noqa: BLE001 — fall through to the publish attempt
+        except Exception:  # noqa: BLE001, fall through to the publish attempt
             pass
 
         msg = self._Request()

@@ -18,7 +18,7 @@ The launch file included `nav2_bringup`, but that stack could not complete
 lifecycle bring-up: `nav2_params.yaml` listed `nav2_reactive_fallback_bt_node`,
 a behaviour-tree plugin library that does not exist in ROS 2 Humble, so
 `bt_navigator` failed `on_configure`. The repository's own behaviour tree was
-never loaded either — the launch passed `default_nav_to_pose_bt_xml` to a
+never loaded either, the launch passed `default_nav_to_pose_bt_xml` to a
 launch file that does not declare that argument, and launch silently ignores
 unmatched arguments. A preflight check verified the tree file existed on disk
 while nothing used it.
@@ -43,7 +43,7 @@ Everything between the navigation goal and the robot.
 * No controller consuming `/goal_pose`.
 * No velocity command anywhere in the system.
 * No safety component inline between any controller and any actuator.
-* No working hardware bridge — and the one that existed would have been
+* No working hardware bridge, and the one that existed would have been
   rejected by the robot: it built a `unitree_go/msg/LowCmd` with a zero frame
   header, `level_flag` unset, and **no CRC**, which Unitree's own reference
   implementation recomputes before every publish. It also never released the
@@ -127,7 +127,7 @@ The bridge runs its own watchdog at 50 Hz on a **monotonic clock**, tighter
 waiting on a process that may be gone. It does not need a notification, a
 shutdown message, or a healthy arbiter to do this.
 
-Verified for the crash case — no shutdown message, no warning — in
+Verified for the crash case, no shutdown message, no warning, in
 `test_end_to_end.py::test_killing_the_arbiter_stops_the_robot`, which kills the
 arbiter mid-motion while the controller keeps commanding.
 
@@ -150,7 +150,7 @@ Zero velocity, by three independent mechanisms:
   the bridge without consulting the arbiter.
 
 Nothing continues the last command. The previous authorized velocity is used
-only to enforce the acceleration limit, never as a fallback output —
+only to enforce the acceleration limit, never as a fallback output,
 `test_arbiter_core.py::test_last_command_is_never_carried_forward`.
 
 ## 8. Is the physical GO2 bridge real or still dry-run?
@@ -164,7 +164,7 @@ been executed against a GO2**. It uses `Move` (1008) for velocity, `StopMove`
 
 Choosing it is deliberate: `hardware_adapter:=unitree_sport`, with no fallback.
 Asking for hardware without the Unitree SDK is a hard failure, not a silent
-downgrade to a simulator — an operator who believed the robot was under command
+downgrade to a simulator, an operator who believed the robot was under command
 when it was not would be in a worse position than one whose launch failed.
 
 ## 9. What fusion bugs were confirmed?
@@ -223,7 +223,7 @@ frames above 0.9286 confidence. No microphone, no wake word, no speaker.
 * Replaced additive scoring with **visual confidence modulated by acoustic
   corroboration**, separating association (a hard gate at `bearing_gate_deg`)
   from confidence. The advertised tolerance is now the effective one, and it no
-  longer moves with detector confidence — verified by bisecting the actual
+  longer moves with detector confidence, verified by bisecting the actual
   acceptance boundary at four confidence levels.
 * Threshold **derived** from a stated contract, not tuned: a 0.75-confidence
   caller must be confirmable anywhere inside the gate and with no microphone.
@@ -286,7 +286,7 @@ has performed went to a recording dry-run adapter.
 * The acoustic bearing's left/right sign convention. `audio_perception_node`
   asserts REP-103, but whether GCC-PHAT's `tau` sign actually maps that way
   depends on undocumented microphone ordering. **If it is inverted, the fusion
-  gate will systematically reject the correct caller** — the same class of
+  gate will systematically reject the correct caller**, the same class of
   failure just fixed, one layer upstream. A bench test is owed.
 * The camera-to-body extrinsic (`camera_yaw_offset_deg`, defaulting to 0.0).
 * Nav2. Wired and never successfully launched; it needs a map, localization,
@@ -377,8 +377,8 @@ wrong reason.
 
 > A safety-authoritative architecture for assistive quadruped navigation, in
 > which a deterministic fail-closed arbiter holds exclusive authority over
-> actuation on a trusted control network. Authority is enforced structurally —
-> the actuator's input is a message type no planner can produce — rather than
+> actuation on a trusted control network. Authority is enforced structurally,
+> the actuator's input is a message type no planner can produce, rather than
 > by convention, and is demonstrated by runtime integration tests showing
 > planner output bounded, hazard-stopped, and cut off entirely when the safety
 > process dies. An independent adversarial audit is reported alongside it,
@@ -386,7 +386,7 @@ wrong reason.
 
 **Not claimable:** anything about hardware. Nav2-based navigation. Obstacle
 avoidance (the system stops for hazards; it does not route around them).
-Speaker verification. A *secure* architecture — it is deterministic and
+Speaker verification. A *secure* architecture, it is deterministic and
 fail-closed on a trusted domain, and an audit demonstrated takeover from an
 unprivileged process.
 

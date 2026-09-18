@@ -316,7 +316,7 @@ class TestNoBypass:
         This is the strongest form of the guarantee, and stronger than
         originally expected: the middleware does not merely decline to match a
         ``geometry_msgs/Twist`` publisher to the bridge's
-        ``SafeVelocityCommand`` subscription — it refuses to CREATE the
+        ``SafeVelocityCommand`` subscription, it refuses to CREATE the
         publisher at all, because the topic already exists with an
         incompatible type.
 
@@ -389,7 +389,7 @@ class TestProcessLevelShutdown:
     This is how launch stops a node and how Ctrl-C reaches one. Before
     ``ExternalShutdownException`` was handled, SIGTERM invalidated the rcl
     context underneath the executor and ``spin`` raised
-    ``RCLError: failed to initialize wait set`` — *before* the ``finally``
+    ``RCLError: failed to initialize wait set``, *before* the ``finally``
     block could call ``destroy_node``. The adapter was therefore never told to
     stop, which on a physical robot means coasting on the last command until
     the onboard controller times out.

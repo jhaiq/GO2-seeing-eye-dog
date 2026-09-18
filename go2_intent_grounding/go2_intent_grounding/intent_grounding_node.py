@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-IntentGroundingNode — multimodal caller confirmation and goal emission.
+IntentGroundingNode, multimodal caller confirmation and goal emission.
 
 Chain position::
 
@@ -12,7 +12,7 @@ Three defects in the previous implementation are fixed here; each is
 documented at the point of the fix and covered by a regression test:
 
 1. A navigation goal could be published with **no voice request ever
-   received** — the voice callback only reset state, it never armed anything.
+   received**, the voice callback only reset state, it never armed anything.
    The state machine now ignores detections in ``IDLE``.
 2. Visual and acoustic bearings were compared **across frames with opposite
    sign conventions**, so a caller on the robot's left was scored against a
@@ -32,7 +32,7 @@ from typing import Optional, Tuple
 
 import rclpy
 import rclpy.duration
-import tf2_geometry_msgs  # noqa: F401 — registers PoseStamped transform support
+import tf2_geometry_msgs  # noqa: F401, registers PoseStamped transform support
 import tf2_ros
 from geometry_msgs.msg import PoseStamped
 from rclpy.executors import ExternalShutdownException
@@ -167,12 +167,12 @@ class IntentGroundingNode(Node):
     def _voice_cb(self, msg: String) -> None:
         command = msg.data.lower().strip()
         if command in REQUEST_PHRASES:
-            self.get_logger().info(f"Request received: '{command}' — arming search")
+            self.get_logger().info(f"Request received: '{command}', arming search")
             self._machine.on_request(self._now())
             self._locked_pose = None
             self._locked_bearing = None
         elif command in STOP_PHRASES:
-            self.get_logger().info(f"Stop command: '{command}' — cancelling goal")
+            self.get_logger().info(f"Stop command: '{command}', cancelling goal")
             self._machine.on_stop()
             self._locked_pose = None
             self._locked_bearing = None
@@ -294,7 +294,7 @@ class IntentGroundingNode(Node):
                 self._goal_frame,
                 timeout=rclpy.duration.Duration(seconds=self._tf_timeout),
             )
-        except Exception as exc:  # noqa: BLE001 — tf2 raises several types
+        except Exception as exc:  # noqa: BLE001, tf2 raises several types
             # No goal is published. The status message carries the state, so a
             # feedback layer can tell the user the robot cannot localize the
             # request rather than leaving them waiting in silence.
@@ -349,7 +349,7 @@ def main(args=None) -> None:
     ``ExternalShutdownException`` is handled explicitly. Without it, a SIGTERM
     during ``spin`` (which is how launch stops a node, and how Ctrl-C reaches
     one) invalidates the rcl context underneath the executor and raises
-    ``RCLError: failed to initialize wait set`` from inside ``spin`` — before
+    ``RCLError: failed to initialize wait set`` from inside ``spin``, before
     the ``finally`` block can run ``destroy_node``. For the grounding node, that
     would mean an unclean teardown.
 

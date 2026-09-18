@@ -2,12 +2,12 @@
 
 A short orientation. The authoritative documents are:
 
-* `docs/target_runtime_architecture.md` — the architecture, its invariants and
+* `docs/target_runtime_architecture.md`, the architecture, its invariants and
   the reasoning behind them
-* `docs/ros_graph.md` — the topic, service and frame reference
-* `docs/safety_architecture_audit.md` — adversarial review of the safety design
-* `docs/research_system_claims.md` — what may and may not be claimed
-* `docs/runtime_graph_audit.md` — what this repository looked like before, and why it changed
+* `docs/ros_graph.md`, the topic, service and frame reference
+* `docs/safety_architecture_audit.md`, adversarial review of the safety design
+* `docs/research_system_claims.md`, what may and may not be claimed
+* `docs/runtime_graph_audit.md`, what this repository looked like before, and why it changed
 
 ## The shape of the system
 

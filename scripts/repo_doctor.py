@@ -179,7 +179,7 @@ def check_no_false_hardware_claims() -> None:
     the robot" appearing in a header is a column label rather than a claim,
     and scanning them by substring produces only false positives. Prose is
     where an overstatement would actually mislead, so prose is what is
-    scanned — backed by a positive check that the disclaimer is present.
+    scanned, backed by a positive check that the disclaimer is present.
     """
     banned = [
         "hardware validated",

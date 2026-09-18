@@ -1,5 +1,5 @@
 # ============================================================================
-# safety.yaml — parameters for the deterministic safety arbiter and the
+# safety.yaml, parameters for the deterministic safety arbiter and the
 #               hardware bridge.
 #
 # THESE ARE SAFETY-CRITICAL CONSTANTS. They live here, under version control,

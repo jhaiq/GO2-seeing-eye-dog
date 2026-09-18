@@ -22,7 +22,7 @@ The defects
 
 2. **The visual-only fallback was very nearly unreachable.**  It returned
    ``visual · 0.7``, so clearing 0.65 required a detection confidence of
-   ``0.65 / 0.7 = 0.928571…`` — far above the 0.5 the detector itself was
+   ``0.65 / 0.7 = 0.928571…``, far above the 0.5 the detector itself was
    configured to accept.  The "fallback" almost never fell back.
 
 3. **Disagreeing audio was punished harder than absent audio.**  With audio
@@ -39,12 +39,12 @@ The model
 Fusion is now **visual confidence modulated by acoustic corroboration**, with
 association and confidence treated as two separate questions:
 
-*Association* — "is this person the one who called?"  A hard gate at
+*Association*, "is this person the one who called?"  A hard gate at
 ``bearing_gate_deg``.  Beyond it the person is not a candidate at all and the
 reason ``BEARING_MISMATCH`` is reported.  This is the parameter that means
 what its name says.
 
-*Confidence* — "am I sure enough to move a robot toward them?"::
+*Confidence*, "am I sure enough to move a robot toward them?"::
 
     audio available:   fused = visual · (w_v + w_a·a) / (w_v + w_a)
     audio unavailable: fused = visual · audio_absent_factor
@@ -224,7 +224,7 @@ def compute_audio_score(
 
     1.0 when the candidate lies exactly on the acoustic bearing, decaying
     linearly to 0.0 at ``soft_scale_rad`` and staying at 0.0 beyond.  Both
-    angles must already be in the SAME frame and sign convention — see
+    angles must already be in the SAME frame and sign convention, see
     :func:`go2_intent_grounding.bearings.camera_azimuth_to_body_yaw`.
     """
     if soft_scale_rad <= 0.0:

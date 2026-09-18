@@ -1,5 +1,5 @@
 # ============================================================================
-# navigation.yaml — parameters for the candidate-motion producer.
+# navigation.yaml, parameters for the candidate-motion producer.
 #
 # Two planners are supported and they are selected by the `planner:` launch
 # argument, not by editing this file:

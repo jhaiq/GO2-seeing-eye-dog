@@ -28,7 +28,7 @@ controller produces. That difference is what prevents a bypass; see Invariant A.
 | Topic | Type | Publisher | Subscribers |
 |---|---|---|---|
 | `/go2/audio/bearing_deg` | `std_msgs/Float32` | `audio_perception_node` | `intent_grounding_node` |
-| `/go2/audio/sound_source` | `geometry_msgs/Vector3Stamped` | `audio_perception_node` | — |
+| `/go2/audio/sound_source` | `geometry_msgs/Vector3Stamped` | `audio_perception_node` |, |
 | `/go2/audio/mono_raw` | `std_msgs/Int16MultiArray` | `audio_perception_node` | `nemo_asr_node` (optional) |
 | `/go2/voice_command` | `std_msgs/String` | `voice_commander_node` | `intent_grounding_node` |
 | `/go2/detected_humans` | `go2_msgs/DetectedHumanArray` | `perception_node` | `intent_grounding_node` |
@@ -43,12 +43,12 @@ subscribed to either topic.
 
 | Topic | Type | Publisher | Subscribers |
 |---|---|---|---|
-| `/go2/confirmed_target` | `go2_msgs/ConfirmedTarget` | `intent_grounding_node` | — (for logging and analysis) |
+| `/go2/confirmed_target` | `go2_msgs/ConfirmedTarget` | `intent_grounding_node` |, (for logging and analysis) |
 | `/go2/grounding_status` | `go2_msgs/GroundingStatus` | `intent_grounding_node` | feedback layer (not yet implemented) |
-| `/go2/grounding_state` | `std_msgs/String` | `intent_grounding_node` | — (legacy, retained for tooling) |
+| `/go2/grounding_state` | `std_msgs/String` | `intent_grounding_node` |, (legacy, retained for tooling) |
 | `/goal_pose` | `geometry_msgs/PoseStamped` | `intent_grounding_node` | `approach_controller_node`, or Nav2 |
 | `/go2/cancel_goal` | `std_msgs/String` | `intent_grounding_node` | `approach_controller_node` |
-| `/go2/controller/status` | `std_msgs/String` | `approach_controller_node` | — |
+| `/go2/controller/status` | `std_msgs/String` | `approach_controller_node` |, |
 
 `/go2/cancel_goal` is new. Without it, a user saying "stop" moved the
 grounding node into `STOPPED` while the controller kept driving toward the

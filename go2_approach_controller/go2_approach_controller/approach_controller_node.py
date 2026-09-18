@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ApproachControllerNode — STAGE 1 candidate-motion producer.
+ApproachControllerNode, STAGE 1 candidate-motion producer.
 
 *** THIS IS NOT A PLANNER. ***
 
@@ -35,7 +35,7 @@ import math
 from typing import Optional
 
 import rclpy
-import tf2_geometry_msgs  # noqa: F401 — registers PoseStamped transform support
+import tf2_geometry_msgs  # noqa: F401, registers PoseStamped transform support
 import tf2_ros
 from geometry_msgs.msg import PoseStamped, TwistStamped
 from rclpy.executors import ExternalShutdownException
@@ -260,7 +260,7 @@ def main(args=None) -> None:
     ``ExternalShutdownException`` is handled explicitly. Without it, a SIGTERM
     during ``spin`` (which is how launch stops a node, and how Ctrl-C reaches
     one) invalidates the rcl context underneath the executor and raises
-    ``RCLError: failed to initialize wait set`` from inside ``spin`` — before
+    ``RCLError: failed to initialize wait set`` from inside ``spin``, before
     the ``finally`` block can run ``destroy_node``. For the controller, that
     would mean the final zero candidates never being published.
 

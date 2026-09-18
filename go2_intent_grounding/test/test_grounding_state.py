@@ -288,7 +288,7 @@ class TestConfirmationEdgeSurvivesTraffic:
     Detections arrive at camera rate (~30 Hz) while status ticks at 5 Hz, so
     several frames land in that gap on every real run. An implementation that
     cleared the edge on each incoming frame would drop the goal almost every
-    time — and would do so intermittently, which is worse than never.
+    time, and would do so intermittently, which is worse than never.
     """
 
     def test_edge_survives_frames_arriving_before_the_tick(self):

@@ -1,7 +1,7 @@
 """
 Caller-confirmation state machine, with no ROS dependency.
 
-Pulled out of the node so the interaction can be tested exhaustively —
+Pulled out of the node so the interaction can be tested exhaustively,
 including the failure modes that a blind user experiences as "the robot did
 nothing and never said why".
 
@@ -80,7 +80,7 @@ class GroundingStateMachine:
 
     Feed it :meth:`on_request`, :meth:`on_stop` and :meth:`on_detection_frame`,
     and call :meth:`tick` on a fixed period so timeouts fire even when no
-    detections are arriving at all — which is precisely the case the old
+    detections are arriving at all, which is precisely the case the old
     implementation could not report.
     """
 
@@ -169,7 +169,7 @@ class GroundingStateMachine:
         Note that this method never clears ``_just_confirmed``. The lock edge
         is a latch owned by :meth:`tick`, which is the only consumer. Clearing
         it here would lose the edge whenever another detection frame arrived
-        between the confirming frame and the next timer tick — which, with
+        between the confirming frame and the next timer tick, which, with
         detections at camera rate and status at 5 Hz, is almost always.
         """
         if self._state not in GroundingState.ACTIVE:
@@ -207,7 +207,7 @@ class GroundingStateMachine:
         Advance time-based transitions and return the current snapshot.
 
         Must be called on a fixed period. This is where a request with no
-        detections at all eventually times out — the previous implementation
+        detections at all eventually times out, the previous implementation
         had no timer and so could sit in SEARCHING forever.
         """
         self._check_timeout(now)

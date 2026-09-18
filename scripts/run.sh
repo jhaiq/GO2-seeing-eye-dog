@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# run.sh — start the canonical stack.
+# run.sh, start the canonical stack.
 #
 # Environment:
 #   PERCEPTION        real | none          (default: real)

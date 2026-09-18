@@ -76,7 +76,7 @@ The safety guarantee is bounded by one assumption, stated wherever it appears:
 process that can reach the robot's network has the same privileges as the
 safety arbiter. The architecture reliably stops a misconfigured controller, a
 stray `ros2 topic pub`, a crashed process, a stalled simulation clock and a
-mistyped parameter — all demonstrated. It does not stop an adversary already on
+mistyped parameter, all demonstrated. It does not stop an adversary already on
 that network. [`docs/safety_architecture_audit.md`](docs/safety_architecture_audit.md)
 reports the audit in full, including the findings that remain open.
 
@@ -167,7 +167,7 @@ What they cover:
   integration and launch tests skip themselves, which is what the ROS-free CI
   job exercises.
 - `scripts/validate.sh`: bytecode compilation plus `repo_doctor.py`, which
-  fails if the safety architecture has been violated statically — a bridge
+  fails if the safety architecture has been violated statically, a bridge
   naming a candidate topic, a second publisher of the safe-command topic, a
   launch file starting an actuator outside `motion_authority.launch.py`,
   arbiter and bridge limits drifting apart, or the hardware-validation
@@ -260,15 +260,15 @@ ros2 topic echo /go2/bridge/status        # what actually reached the actuator
 
 Start here:
 
-- [`docs/target_runtime_architecture.md`](docs/target_runtime_architecture.md) — the architecture, its invariants, and an honest account of the Nav2 situation
-- [`docs/research_system_claims.md`](docs/research_system_claims.md) — what may and may not be claimed, claim by claim
-- [`docs/END_TO_END_UPGRADE_REPORT.md`](docs/END_TO_END_UPGRADE_REPORT.md) — what changed and why
+- [`docs/target_runtime_architecture.md`](docs/target_runtime_architecture.md), the architecture, its invariants, and an honest account of the Nav2 situation
+- [`docs/research_system_claims.md`](docs/research_system_claims.md), what may and may not be claimed, claim by claim
+- [`docs/END_TO_END_UPGRADE_REPORT.md`](docs/END_TO_END_UPGRADE_REPORT.md), what changed and why
 
 Reference:
 
-- [`docs/safety_architecture_audit.md`](docs/safety_architecture_audit.md) — adversarial review of the safety design
-- [`docs/runtime_graph_audit.md`](docs/runtime_graph_audit.md) — what this repository was before, in detail
-- [`docs/ros_graph.md`](docs/ros_graph.md) — topics, services, QoS, frames
-- [`docs/architecture.md`](docs/architecture.md) — short orientation
+- [`docs/safety_architecture_audit.md`](docs/safety_architecture_audit.md), adversarial review of the safety design
+- [`docs/runtime_graph_audit.md`](docs/runtime_graph_audit.md), what this repository was before, in detail
+- [`docs/ros_graph.md`](docs/ros_graph.md), topics, services, QoS, frames
+- [`docs/architecture.md`](docs/architecture.md), short orientation
 - [`docs/debugging.md`](docs/debugging.md)
 - [`docs/hardware_assumptions.md`](docs/hardware_assumptions.md)

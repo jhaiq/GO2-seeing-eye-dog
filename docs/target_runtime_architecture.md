@@ -8,7 +8,7 @@ The single rule everything else serves:
 > **No motion command may reach the physical GO2 without passing through the
 > deterministic safety authority.**
 
-Not "should not". *Cannot* — enforced by the type system, the launch graph and
+Not "should not". *Cannot*, enforced by the type system, the launch graph and
 the middleware, and demonstrated by runtime tests rather than asserted in prose.
 
 **Bounded by one assumption, stated up front:** a trusted DDS domain. ROS 2
@@ -87,7 +87,7 @@ adversary already on the robot's network, and nothing in-band could. See
 
 ## The invariants, and how each is enforced
 
-### Invariant A — candidate and safe commands are separate
+### Invariant A, candidate and safe commands are separate
 
 The controller publishes `geometry_msgs/TwistStamped` on
 `/cmd_vel_candidate`. The bridge subscribes to `go2_msgs/SafeVelocityCommand`
@@ -115,7 +115,7 @@ The custom type carries what a bare `Twist` cannot: the authoring arbiter's
 identity token, a monotonic sequence number, the state that authorized the
 command, the reason codes behind it, and a hard `valid_until` expiry.
 
-### Invariant B — fail closed
+### Invariant B, fail closed
 
 Every path that cannot positively establish permission returns zero velocity.
 In `go2_safety_arbiter/core.py` there is no `else: allow`; the default of
@@ -140,15 +140,15 @@ Two properties are worth stating explicitly because they are what most
 
 **An unrecognised hazard type is a stop, not a pass.** If
 `safety_monitor_node` gains a new alert type tomorrow and the arbiter has not
-been taught about it, the robot stops. The alternative — treating unknown as
-benign — means every future perception improvement is a potential silent
+been taught about it, the robot stops. The alternative, treating unknown as
+benign, means every future perception improvement is a potential silent
 regression in safety.
 
 **A crashing rule is a stop.** `evaluate` catches every exception and converts
 it to a zero-velocity decision. A bug in a safety check must never be the
 reason a robot keeps moving.
 
-### Invariant C — bounded command lifetime
+### Invariant C, bounded command lifetime
 
 Three independent timers, deliberately not one:
 
@@ -168,23 +168,23 @@ Both the arbiter and the bridge run their decisions on **timers, not
 callbacks**. A callback-driven design goes quiet when its input stops, and
 going quiet is not a stop.
 
-### Invariant D — explicit authority
+### Invariant D, explicit authority
 
 `safety_arbiter_node` is the only publisher of `SafeVelocityCommand` anywhere
 in the workspace. This is enforced at three levels:
 
-1. **Statically** — `scripts/repo_doctor.py` fails CI if any package outside
+1. **Statically**, `scripts/repo_doctor.py` fails CI if any package outside
    `go2_safety_arbiter` constructs such a publisher, or if any launch file
    outside `motion_authority.launch.py` starts a hardware bridge.
-2. **In the launch graph** — `motion_authority.launch.py` is the single file
+2. **In the launch graph**, `motion_authority.launch.py` is the single file
    that defines the actuation path, and every entrypoint includes it unchanged.
-3. **At runtime** — the bridge latches the first `authority_token` it accepts
+3. **At runtime**, the bridge latches the first `authority_token` it accepts
    and refuses commands bearing a different one, so two concurrently running
    arbiters cannot both drive the robot. A token change is accepted only after
    the bridge has been stopped for `authority_handover_quiet_sec`, which lets a
    legitimate restart through while refusing an overlapping duplicate.
 
-### Invariant E — simulation and hardware parity
+### Invariant E, simulation and hardware parity
 
 Everything from perception to `/cmd_vel_safe` is byte-identical in dry-run and
 on hardware. Only the adapter behind `HardwareBridgeInterface` differs.
@@ -199,7 +199,7 @@ production decision path, not a simulation of it.
 ## Defence in depth: why the bridge distrusts the arbiter
 
 The bridge re-checks everything the arbiter already checked. That is not
-redundancy for its own sake — the failure being defended against is *the
+redundancy for its own sake, the failure being defended against is *the
 arbiter being wrong, absent, restarted, or duplicated*, and in every one of
 those cases the arbiter's own checks are worth nothing.
 
@@ -216,8 +216,8 @@ those cases the arbiter's own checks are worth nothing.
 | State/velocity consistency | A command claiming `STOPPED` while carrying velocity |
 
 The bridge's limit check **refuses** rather than clamping, deliberately. At
-the arbiter, an over-limit candidate is an expected condition — planners
-over-command — so it is clamped. At the bridge, an over-limit command means
+the arbiter, an over-limit candidate is an expected condition, planners
+over-command, so it is clamped. At the bridge, an over-limit command means
 the arbiter itself is malfunctioning, and silently clamping it would hide the
 fault behind a second layer of correction.
 
@@ -238,7 +238,7 @@ no robot description, no TF broadcaster, no lidar driver.
 The pre-existing `nav2_params.yaml` additionally referenced a behaviour-tree
 plugin library that does not exist in Humble, so `bt_navigator` could not
 complete `on_configure` and the lifecycle manager could not bring the stack
-up — independently of everything above. See `docs/runtime_graph_audit.md` §3.
+up, independently of everything above. See `docs/runtime_graph_audit.md` §3.
 
 Shipping a Nav2 bring-up that fails at lifecycle configure, and describing it
 as navigation, would have been worse than shipping nothing.
@@ -269,7 +269,7 @@ this a stage rather than a rewrite waiting to happen.
 converts it to the stamped contract.
 
 Nav2 believes it is driving the robot. It is driving the arbiter's inlet.
-Removing that remapping would not connect Nav2 to the hardware — it would
+Removing that remapping would not connect Nav2 to the hardware, it would
 connect Nav2 to nothing, because the bridge consumes a different type.
 
 **The honest limitation of the unstamped inlet:** the stamper applies the
@@ -277,7 +277,7 @@ connect Nav2 to nothing, because the bridge consumes a different type.
 latency. It is a lower bound on true age. This is recorded in the node's
 docstring, in `config/safety.yaml`, and in a startup warning the arbiter
 logs whenever `accept_unstamped_candidate` is true. It still catches the
-dominant failure mode — the producer stopping — but it is weaker than a real
+dominant failure mode, the producer stopping, but it is weaker than a real
 producer timestamp, and it should be turned off once Nav2 publishes
 `TwistStamped` natively.
 
@@ -301,7 +301,7 @@ producer timestamp, and it should be turned off once Nav2 publishes
 
 | State | Meaning | Authorized velocity | Recovery |
 |---|---|---|---|
-| `SAFE_TO_MOVE` | Full authority | Candidate, clamped and rate-limited | — |
+| `SAFE_TO_MOVE` | Full authority | Candidate, clamped and rate-limited |, |
 | `DEGRADED` | A slowdown-class hazard holds | Scaled by `degraded_scale` (0.35) | Automatic when the hazard clears |
 | `STOPPED` | Motion forbidden | Zero | Automatic when the cause clears |
 | `EMERGENCY_STOP` | Latched | Zero | **Explicit service call only** |
@@ -322,7 +322,7 @@ releasing an e-stop produces a ramp, not a lurch.
 ## The hardware adapter contract
 
 `HardwareBridgeInterface` requires `connect`, `send_velocity`, `send_zero`,
-`emergency_stop`, `health` and `shutdown`. Adapters are **transport only** —
+`emergency_stop`, `health` and `shutdown`. Adapters are **transport only**,
 they perform no safety decisions, because by the time a velocity reaches one
 it has been authorized by the arbiter and re-checked by the bridge. An adapter
 that silently modified a command would break the audit chain.
@@ -335,11 +335,11 @@ Two rules that are easy to get wrong:
 * `send_velocity` returns `False` on a failed transmission rather than
   raising, so the bridge can count failures and stop after
   `max_consecutive_transmit_failures`. A `True` return means *transmitted*,
-  never *the robot moved* — no adapter may claim physical confirmation it does
+  never *the robot moved*, no adapter may claim physical confirmation it does
   not have.
 * `tick()` is called on every control cycle whether or not a command arrived.
-  Adapters whose transport **latches** — where the robot keeps executing the
-  last command until told otherwise — must use it to enforce their own
+  Adapters whose transport **latches**, where the robot keeps executing the
+  last command until told otherwise, must use it to enforce their own
   command-hold timeout.
 
   That last rule exists because of a specific finding.
@@ -363,7 +363,7 @@ Sport API (`Move`, api_id 1008) rather than `/lowcmd`, because:
 * Unitree's onboard controller keeps the robot balanced, so a bug here
   produces a bad velocity rather than a fall;
 * `/lowcmd` requires a CRC over the packed command struct and requires the
-  onboard sport service to be released first — neither of which the removed
+  onboard sport service to be released first, neither of which the removed
   `hw_bridge.py` did.
 
 `send_zero` issues `StopMove` (1003) rather than `Move(0,0,0)`, so the
@@ -398,8 +398,8 @@ conservative desk values chosen to be slower than the platform's documented
 capability, and `repo_doctor.py` fails CI if that disclaimer is removed.
 
 There is deliberately **no `safety_enabled` parameter**. Individual
-requirements can be relaxed — and doing so is reported in `SafetyStatus` so it
-cannot happen silently — but no parameter combination turns the arbiter into a
+requirements can be relaxed, and doing so is reported in `SafetyStatus` so it
+cannot happen silently, but no parameter combination turns the arbiter into a
 pass-through.
 
 **Every limit is additionally bounded above by a hard ceiling compiled into
