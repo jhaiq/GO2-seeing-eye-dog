@@ -12,7 +12,10 @@ python3 -m compileall \
   "${ROOT_DIR}/go2_navigation" \
   "${ROOT_DIR}/go2_perception" \
   "${ROOT_DIR}/go2_safety_monitor" \
-  "${ROOT_DIR}/go2_voice_commander"
+  "${ROOT_DIR}/go2_voice_commander" \
+  "${ROOT_DIR}/go2_safety_arbiter" \
+  "${ROOT_DIR}/go2_hardware_bridge" \
+  "${ROOT_DIR}/go2_approach_controller"
 
 echo "[validate] repo doctor"
 python3 "${ROOT_DIR}/scripts/repo_doctor.py"

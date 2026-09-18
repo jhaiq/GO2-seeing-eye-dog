@@ -19,6 +19,13 @@ testpaths = [
   "go2_audio_perception/test",
   "go2_intent_grounding/test",
   "go2_voice_commander/test",
+  "go2_safety_arbiter/test",
+  "go2_hardware_bridge/test",
+  "go2_approach_controller/test",
+  "go2_bringup/test",
   "evaluation/tests",
+]
+markers = [
+  "ros: requires a live rclpy context and the generated go2_msgs types",
 ]
 

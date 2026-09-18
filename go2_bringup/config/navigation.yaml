@@ -1,0 +1,79 @@
+# ============================================================================
+# navigation.yaml — parameters for the candidate-motion producer.
+#
+# Two planners are supported and they are selected by the `planner:` launch
+# argument, not by editing this file:
+#
+#   planner:=staged  (default)  go2_approach_controller  -> Stage 1
+#   planner:=nav2               nav2_bringup             -> Stage 2
+#
+# Both publish a candidate velocity. NEITHER can reach the hardware: the
+# SafetyArbiter sits between them and the bridge, and the bridge's input type
+# (go2_msgs/SafeVelocityCommand) is one no controller can produce.
+#
+# Why Stage 1 exists is documented in docs/target_runtime_architecture.md.
+# Briefly: Nav2's planner and controller servers require a map, a localization
+# source, odometry, a TF tree and a laser scan. This repository ships none of
+# them, and the pre-existing nav2_params.yaml additionally referenced a
+# behavior-tree plugin library that does not exist in ROS 2 Humble. Launching
+# that stack produced a lifecycle bring-up failure, not navigation.
+# ============================================================================
+
+approach_controller_node:
+  ros__parameters:
+
+    # unit: Hz | meaning: candidate publication rate.
+    # source: matched to the arbiter's 20 Hz so every arbiter tick has a fresh
+    #         candidate available.
+    control_frequency_hz: 20.0
+
+    # meaning: frame the candidate velocity is expressed in, and the frame the
+    #          goal is transformed into. Must equal the arbiter's
+    #          expected_frame_id or every command is refused.
+    robot_frame: base_link
+
+    # unit: (m/s)/m | meaning: linear gain on range error.
+    # Shaping only. The arbiter owns the velocity envelope, so a bad value
+    # here produces a sloppy approach, not an unsafe one. The test suite
+    # deliberately exercises a gain that produces an over-limit candidate to
+    # prove the arbiter clamps it.
+    k_linear: 0.6
+
+    # unit: (rad/s)/rad | meaning: angular gain on heading error.
+    k_angular: 1.2
+
+    # unit: rad | meaning: heading error above which the robot turns in place
+    #       instead of translating, so it does not arc into obstacles it has
+    #       no map of.
+    turn_in_place_rad: 0.6
+
+    # unit: m | meaning: range at which the approach is complete.
+    # source: a guide dog that stops on top of its handler is a failure. This
+    #         is a social-distance default, not a measured stopping distance.
+    # safe_default: yes | hardware_validated: false
+    goal_tolerance_m: 0.8
+
+    # unit: rad | meaning: heading tolerance for squaring up to the caller.
+    yaw_tolerance_rad: 0.25
+
+    # unit: m | meaning: range inside which linear speed is derated toward
+    #       zero, so the robot arrives slowly rather than braking hard.
+    slowdown_radius_m: 1.5
+
+    # unit: s | meaning: age beyond which an unachieved goal is abandoned.
+    #       Prevents the controller pursuing a target from a request the user
+    #       has long since given up on.
+    goal_lifetime_sec: 30.0
+
+    # unit: s | meaning: TF lookup timeout. A TF failure publishes an explicit
+    #       zero candidate rather than going silent, so the operator can tell
+    #       "controller says stop" from "controller died".
+    tf_timeout_sec: 0.1
+
+
+candidate_stamper_node:
+  ros__parameters:
+    # meaning: frame stamped onto velocities arriving from an unstamped
+    #          producer (Nav2 on Humble). Must equal the arbiter's
+    #          expected_frame_id.
+    frame_id: base_link

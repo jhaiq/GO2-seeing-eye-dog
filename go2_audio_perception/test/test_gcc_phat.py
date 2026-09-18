@@ -1,16 +1,21 @@
 """Unit tests for GCC-PHAT time-delay estimation."""
 import sys
-from unittest.mock import MagicMock
+from pathlib import Path
 
-# Mock ROS2 and audio deps so the module can be imported without hardware
-for _mod in [
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from conftest import mock_missing_modules  # noqa: E402
+
+# Stand in for ROS and audio dependencies ONLY when they are genuinely absent,
+# so this file still runs in a ROS-free CI job without corrupting the real
+# message types for the node tests that run after it. See the helper's
+# docstring for what the unconditional version used to break.
+mock_missing_modules([
     "rclpy", "rclpy.node", "rclpy.qos",
     "pyaudio",
     "scipy", "scipy.signal",
     "std_msgs", "std_msgs.msg",
     "geometry_msgs", "geometry_msgs.msg",
-]:
-    sys.modules.setdefault(_mod, MagicMock())
+])
 
 import numpy as np
 import pytest

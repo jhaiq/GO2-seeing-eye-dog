@@ -1,0 +1,223 @@
+# ============================================================================
+# safety.yaml — parameters for the deterministic safety arbiter and the
+#               hardware bridge.
+#
+# THESE ARE SAFETY-CRITICAL CONSTANTS. They live here, under version control,
+# and not in Python source, so that a change to the robot's motion envelope is
+# a reviewable diff rather than an edit buried in a control loop.
+#
+# Provenance key
+#   source:              where the number came from
+#   hardware_validated:  whether it has been confirmed on a physical GO2 by
+#                        this repository. Every velocity and acceleration
+#                        limit below is currently FALSE.
+#
+# NOTHING IN THIS FILE HAS BEEN MEASURED ON A PHYSICAL GO2. The velocity and
+# acceleration limits are conservative desk values chosen to be slower than
+# the platform's documented capability, on the principle that an unvalidated
+# limit should err toward too slow. They must be re-derived from a logged
+# hardware session before any claim of hardware-appropriate tuning.
+# ============================================================================
+
+safety_arbiter_node:
+  ros__parameters:
+
+    # ── Control loop ──────────────────────────────────────────────────
+    # unit: Hz | meaning: rate at which the arbiter re-decides and republishes.
+    # source: chosen to be >= the 20 Hz Nav2 controller_frequency in
+    #         navigation.yaml, so the arbiter never becomes the bottleneck.
+    # hardware_validated: false
+    control_frequency_hz: 20.0
+
+    # ── Velocity envelope (base_link, REP-103) ────────────────────────
+    # unit: m/s | meaning: maximum authorized forward/backward body velocity.
+    # source: conservative desk default. Unitree documents the GO2's
+    #         capability well above this; this is a deliberate derate for an
+    #         assistive robot moving near a person who cannot see it.
+    # safe_default: yes | hardware_validated: false
+    max_vx: 0.4
+
+    # unit: m/s | meaning: maximum authorized lateral body velocity.
+    # source: conservative desk default. The staged controller never commands
+    #         lateral motion; this bounds it if a future planner does.
+    # safe_default: yes | hardware_validated: false
+    max_vy: 0.2
+
+    # unit: rad/s | meaning: maximum authorized yaw rate.
+    # source: conservative desk default (~34 deg/s).
+    # safe_default: yes | hardware_validated: false
+    max_wz: 0.6
+
+    # unit: m/s^2 | meaning: slew-rate limit applied per control period to vx
+    #       and vy independently. Prevents a step change in commanded speed.
+    # source: conservative desk default. At 20 Hz this permits 0.025 m/s of
+    #         change per tick, so 0 -> max_vx takes ~0.8 s.
+    # safe_default: yes | hardware_validated: false
+    max_accel_linear: 0.5
+
+    # unit: rad/s^2 | meaning: slew-rate limit applied to wz.
+    # source: conservative desk default.
+    # safe_default: yes | hardware_validated: false
+    max_accel_angular: 1.0
+
+    # unit: dimensionless multiplier | meaning: velocity scale applied while
+    #       in DEGRADED (a slowdown-class hazard is asserted).
+    # source: chosen so derated top speed (0.14 m/s) is a slow walk.
+    # safe_default: yes | hardware_validated: false
+    degraded_scale: 0.35
+
+    # ── Freshness and watchdogs (Invariants B and C) ──────────────────
+    # unit: s | meaning: an individual candidate older than this is refused.
+    # source: 6 control periods at 20 Hz. Long enough to tolerate scheduling
+    #         jitter, short enough that a command cannot outlive the situation
+    #         that produced it.
+    # safe_default: yes | hardware_validated: false
+    candidate_max_age_sec: 0.30
+
+    # unit: s | meaning: silence tolerated before the arbiter commands stop.
+    # source: 10 control periods. Distinct from candidate_max_age_sec: this
+    #         bounds a dead producer, that bounds an old message.
+    # safe_default: yes | hardware_validated: false
+    watchdog_timeout_sec: 0.50
+
+    # unit: s | meaning: age beyond which hazard information is treated as
+    #       missing, which is a stop (fail closed).
+    # source: safety_monitor_node publishes on every depth frame; at the
+    #         RealSense 30 Hz profile this allows ~30 dropped frames.
+    # safe_default: yes | hardware_validated: false
+    hazard_max_age_sec: 1.00
+
+    # unit: s | meaning: age beyond which localization is treated as lost.
+    # source: only consulted when require_localization is true.
+    # safe_default: yes | hardware_validated: false
+    localization_max_age_sec: 2.00
+
+    # unit: s | meaning: how far in the future a timestamp may be before it is
+    #       rejected as a clock-sync fault.
+    # source: absorbs sub-tick skew between processes on one machine. Not
+    #         sufficient for a distributed clock; raise only with NTP/PTP.
+    # safe_default: yes | hardware_validated: false
+    future_tolerance_sec: 0.05
+
+    # unit: s | meaning: lifetime stamped into each SafeVelocityCommand and
+    #       enforced independently by the hardware bridge.
+    # source: matched to candidate_max_age_sec.
+    # safe_default: yes | hardware_validated: false
+    safe_command_lifetime_sec: 0.30
+
+    # ── Requirement policy ────────────────────────────────────────────
+    # meaning: refuse to authorize motion without fresh hazard information.
+    # Setting this false is a deliberate reduction in assurance and is
+    # reported in SafetyStatus. There is no parameter that disables the
+    # arbiter itself.
+    # safe_default: true | hardware_validated: n/a
+    require_hazard_context: true
+
+    # meaning: refuse to authorize motion without valid localization.
+    # source: FALSE today because this repository does not yet ship a
+    #         localization source (no AMCL, no map, no odometry). Enabling it
+    #         with nothing publishing /localization_valid would correctly but
+    #         unhelpfully stop the robot permanently. Set true when Stage 2
+    #         (Nav2 + AMCL) lands.
+    # safe_default: true (once a localization source exists)
+    require_localization: false
+
+    # meaning: frame every candidate command must declare.
+    expected_frame_id: base_link
+
+    # meaning: accept geometry_msgs/Twist on cmd_vel_candidate_unstamped,
+    #          stamping at receipt.
+    #
+    # FALSE by default. It is only needed for planner:=nav2 (Nav2 on Humble
+    # publishes unstamped Twist), and system.launch.py sets it true for that
+    # configuration alone.
+    #
+    # It carries two costs, and defaulting it on paid both of them for every
+    # user including those who never touch Nav2:
+    #   1. Invariant C is weakened. A receipt-stamped command is always
+    #      "fresh" by construction, so the arbiter cannot detect a command
+    #      that was generated long before it arrived.
+    #   2. It is an open, unauthenticated inlet accepting a stock message
+    #      type. Anything on the domain can publish to it.
+    # safe_default: false | hardware_validated: n/a
+    accept_unstamped_candidate: false
+
+    # unit: s | meaning: how long a stop-class hazard stays latched after it
+    #       stops being asserted on either channel.
+    # source: without a hold, one dropped or flapping alert frame re-permits
+    #         motion. Half a second spans ~15 frames at the 30 Hz depth rate.
+    # safe_default: yes | hardware_validated: false
+    hazard_clear_hold_sec: 0.5
+
+    # meaning: refuse to authorize motion until every required input has been
+    #          observed at least once since startup. Distinct from the
+    #          freshness checks: this asks "has this ever arrived?", they ask
+    #          "is this recent?". A node that never heard from the safety
+    #          monitor is in a different situation from one whose last hazard
+    #          message aged out, and the reason codes distinguish them.
+    # safe_default: true | hardware_validated: n/a
+    require_initial_inputs: true
+
+
+hardware_bridge_node:
+  ros__parameters:
+
+    # meaning: which adapter to construct. dry_run touches no hardware and
+    #          records every command as JSONL. unitree_sport publishes Sport
+    #          API Move requests to a physical GO2 and has NEVER been executed
+    #          against one by this repository.
+    # There is no fallback: asking for unitree_sport without the SDK is a
+    # hard failure, not a silent downgrade to dry_run.
+    hardware_adapter: dry_run
+
+    # unit: path | meaning: JSONL actuation log. Empty disables file logging.
+    dry_run_log_path: ""
+
+    # unit: Hz | meaning: rate at which the bridge re-evaluates and actuates.
+    # source: deliberately faster than the arbiter (20 Hz) so the bridge's own
+    #         watchdog can fire between arbiter ticks.
+    # safe_default: yes | hardware_validated: false
+    control_frequency_hz: 50.0
+
+    # unit: s | meaning: the bridge's INDEPENDENT watchdog. If no acceptable
+    #       safe command arrives within this window the bridge zeroes the
+    #       robot without being told to. This is what makes the system survive
+    #       the arbiter dying (Invariant B).
+    # source: shorter than the arbiter's own watchdog, so the bridge stops
+    #         first rather than waiting on a process that may be gone.
+    # safe_default: yes | hardware_validated: false
+    watchdog_timeout_sec: 0.30
+
+    # unit: m/s, m/s, rad/s | meaning: the bridge re-checks limits itself
+    #       rather than trusting the arbiter. An over-limit command is REFUSED
+    #       (and stops the robot), not clamped, so an arbiter fault is visible
+    #       rather than silently absorbed. Keep equal to the arbiter's limits.
+    # safe_default: yes | hardware_validated: false
+    max_vx: 0.4
+    max_vy: 0.2
+    max_wz: 0.6
+
+    # unit: s | meaning: how long the bridge must have been stopped before it
+    #       will accept a different arbiter's authority token. Permits a
+    #       legitimate arbiter restart; refuses a second arbiter started
+    #       alongside a live one.
+    # safe_default: yes | hardware_validated: false
+    authority_handover_quiet_sec: 1.0
+
+    # unit: count | meaning: consecutive adapter transmit failures before the
+    #       bridge forces a stop.
+    # safe_default: yes | hardware_validated: false
+    max_consecutive_transmit_failures: 3
+
+    # meaning: the frame every safe command must declare. Must match the
+    #          arbiter's expected_frame_id. A command in an unexpected frame is
+    #          not interpretable as a body velocity whatever its numbers say.
+    expected_frame_id: base_link
+
+    # unit: s | meaning: the largest `valid_until` horizon the bridge will
+    #       honour. A command claiming validity far into the future is not a
+    #       licence to move for that long; an arbiter that stamped one is
+    #       malfunctioning, and a message carrying one may not have come from
+    #       an arbiter at all.
+    # safe_default: yes | hardware_validated: false
+    max_command_lifetime_sec: 2.0

@@ -1,0 +1,151 @@
+# ============================================================================
+# fusion.yaml — multimodal caller-confirmation parameters.
+#
+# The interpretation of every weight and threshold is documented here and in
+# the module docstring of go2_intent_grounding/fusion.py. The previous scheme
+# had constants whose effective meaning did not match their names; the point
+# of this file is that the meaning is now written down next to the number.
+#
+# The fusion model:
+#
+#   association (hard gate):
+#       |bearing_delta| > bearing_gate_deg  ->  not the caller, reason
+#                                               BEARING_MISMATCH
+#
+#   confidence (audio available):
+#       fused = visual * (visual_weight + audio_weight * a) / (visual_weight
+#                                                              + audio_weight)
+#       where a = clamp(1 - |bearing_delta| / bearing_soft_deg, 0, 1)
+#
+#   confidence (audio unavailable):
+#       fused = visual * audio_absent_factor
+#
+#   accept when fused >= min_confidence_threshold
+#
+# Probabilistic reading: this is NOT a calibrated posterior and is not
+# presented as one. It is a heuristic score in which `visual` is the
+# detector's own confidence and the audio term is a corroboration multiplier
+# in [visual_weight/(visual_weight+audio_weight), 1]. Perfect corroboration
+# returns the detector's confidence unchanged, so the fused number retains the
+# detector's meaning; corroboration can only discount it, never inflate it.
+# That asymmetry is deliberate: a microphone array with 5 cm spacing and no
+# measured extrinsic should not be able to make the system MORE confident than
+# the vision system alone.
+# ============================================================================
+
+intent_grounding_node:
+  ros__parameters:
+
+    # ── Association ───────────────────────────────────────────────────
+    # unit: degrees | meaning: HARD gate. A detection whose body-frame bearing
+    #       differs from the acoustic bearing by more than this is not the
+    #       caller and is rejected with an explicit reason.
+    # This parameter now means what its name says. Under the previous additive
+    # model the advertised 25 deg tolerance was effectively 18.125 deg for a
+    # 0.9-confidence detection, because the audio term's linear decay was
+    # racing a fixed threshold.
+    # source: chosen to bound plausible GCC-PHAT bearing error for a 5 cm
+    #         two-microphone baseline at conversational range. NOT measured.
+    # safe_default: yes | hardware_validated: false
+    bearing_gate_deg: 25.0
+
+    # unit: degrees | meaning: scale over which acoustic corroboration decays
+    #       from 1.0 to 0.0. Equal to the gate so corroboration reaches zero
+    #       exactly at the gate rather than part-way through it.
+    # source: tied to bearing_gate_deg by design.
+    # safe_default: yes | hardware_validated: false
+    bearing_soft_deg: 25.0
+
+    # unit: degrees | meaning: yaw of the camera optical axis in base_link,
+    #       CCW-positive. Used to convert a camera-optical azimuth into a body
+    #       yaw so it can be compared with the acoustic bearing.
+    # source: PLACEHOLDER. The correct value is the mounted camera extrinsic
+    #         and must come from TF once this repository ships a robot
+    #         description. Zero assumes the camera looks straight ahead.
+    #         Treating a missing extrinsic as zero is an approximation; the
+    #         defect this replaced was a SIGN INVERSION, which is a different
+    #         and worse thing.
+    # safe_default: 0.0 | hardware_validated: false
+    camera_yaw_offset_deg: 0.0
+
+    # ── Confidence ────────────────────────────────────────────────────
+    # unit: dimensionless | meaning: relative weight of acoustic corroboration.
+    # source: retained from the previous configuration so the audio:visual
+    #         emphasis is unchanged; only the combination rule changed.
+    audio_weight: 0.4
+
+    # unit: dimensionless | meaning: relative weight of visual confidence.
+    # Together these set the corroboration floor:
+    #   0.6 / (0.6 + 0.4) = 0.60
+    # i.e. a candidate at the very edge of the gate scores 60% of the
+    # detector's confidence.
+    visual_weight: 0.6
+
+    # unit: dimensionless | meaning: multiplier when no fresh acoustic bearing
+    #       exists at all.
+    # Must lie in [corroboration_floor, 1.0] = [0.60, 1.0]. This constraint is
+    # enforced in code (FusionParams.__post_init__) because violating it
+    # reintroduces the defect where losing the microphone made the system MORE
+    # permissive than pointing it slightly wrong.
+    # source: 0.85 places "no acoustic evidence" between "contradicting" (0.60)
+    #         and "corroborating" (1.00), closer to the optimistic end because
+    #         a missing bearing is usually a quiet room, not a disagreement.
+    # safe_default: yes | hardware_validated: false
+    audio_absent_factor: 0.85
+
+    # unit: dimensionless | meaning: acceptance threshold on the fused score.
+    #
+    # DERIVED, not tuned. Design contract:
+    #   "A caller detected with visual confidence >= 0.75 must be confirmable
+    #    anywhere inside the bearing gate, and must remain confirmable when
+    #    the microphone array is unavailable."
+    #
+    #   worst corroborated case: 0.75 * 0.60 = 0.450
+    #   audio-unavailable case:  0.75 * 0.85 = 0.6375
+    #   => threshold < 0.450. Chosen 0.44.
+    #
+    # The inequality is STRICT and the value carries margin on purpose.
+    # Exactly 0.45 was tried and rejected: in IEEE 754, 0.75*0.6 evaluates to
+    # 0.44999999999999996, so the contract would have failed by one unit in
+    # the last place. An acceptance decision that gates robot motion must not
+    # turn on floating-point rounding.
+    #
+    # Consequences, all checked by tests:
+    #   visual-only confirmation needs conf >= 0.44/0.85 = 0.518
+    #     (previously 0.65/0.7 = 0.929, i.e. effectively unreachable)
+    #   gate-edge confirmation needs conf >= 0.44/0.60 = 0.733
+    #   a 0.5-confidence detection fails visual-only (0.425 < 0.44)
+    #
+    # safe_default: yes | hardware_validated: false
+    min_confidence_threshold: 0.44
+
+    # ── Interaction ───────────────────────────────────────────────────
+    # unit: frames | meaning: consecutive accepted frames required to lock.
+    # source: retained from the previous configuration.
+    confirmation_frames: 5
+
+    # unit: s | meaning: age beyond which the acoustic bearing is treated as
+    #       unavailable, routing to the visual-only path.
+    audio_timeout_sec: 2.0
+
+    # unit: s | meaning: how long a "come here" request stays armed before it
+    #       times out with reason CONFIRMATION_TIMEOUT.
+    # This parameter did not exist before. Its absence is why a request could
+    # leave the system in SEARCHING indefinitely with no output at all, which
+    # for a blind user is an interaction that simply never ends.
+    # source: chosen to be long enough to walk into frame, short enough that a
+    #         failed request is reported while the user still remembers making
+    #         it.
+    # safe_default: yes | hardware_validated: false
+    request_timeout_sec: 15.0
+
+    # unit: Hz | meaning: rate at which GroundingStatus is published,
+    #       independent of whether any detections are arriving. This is what
+    #       makes "the robot sees nothing" observable rather than silent.
+    status_rate_hz: 5.0
+
+    # meaning: frame the navigation goal is published in.
+    goal_frame: map
+
+    # unit: s | meaning: TF lookup timeout when transforming the locked target.
+    tf_timeout_sec: 0.1

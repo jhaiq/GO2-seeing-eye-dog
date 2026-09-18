@@ -65,7 +65,15 @@ install(DIRECTORY include/
   DESTINATION include
 )
 
-install(DIRECTORY launch config worlds scripts
+# NOTE: `scripts/` previously held hw_bridge.py, this package's own route to
+# GO2 actuation. It has been removed (see DEPRECATED.md): actuation now goes
+# exclusively through go2_hardware_bridge, behind the safety arbiter.
+#
+# It was also installed incorrectly. `share/` is not on the executable search
+# path used by `ros2 run` or `launch_ros`, and install(DIRECTORY) without
+# USE_SOURCE_PERMISSIONS strips the executable bit, so the node it declared
+# could never actually start.
+install(DIRECTORY launch config worlds
   DESTINATION share/${PROJECT_NAME}
 )
 

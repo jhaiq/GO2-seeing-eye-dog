@@ -1,32 +1,72 @@
 # Architecture
 
-## Scope
+A short orientation. The authoritative documents are:
 
-This repository contains the real-hardware sensing, intent-grounding, navigation configuration, and bringup path for the GO2 seeing-eye-dog project. It is not a simulator repo and it does not currently contain a packaged full autonomy state machine.
+* `docs/target_runtime_architecture.md` — the architecture, its invariants and
+  the reasoning behind them
+* `docs/ros_graph.md` — the topic, service and frame reference
+* `docs/safety_architecture_audit.md` — adversarial review of the safety design
+* `docs/research_system_claims.md` — what may and may not be claimed
+* `docs/runtime_graph_audit.md` — what this repository looked like before, and why it changed
+
+## The shape of the system
+
+```
+perception  ->  caller confirmation  ->  intent grounding  ->  navigation goal
+                                                                     |
+                                                                     v
+                                                          candidate motion command
+                                                                     |
+                                                                     v
+                                                    DETERMINISTIC SAFETY ARBITER
+                                                                     |
+                                                              safe command
+                                                                     |
+                                                                     v
+                                                            hardware adapter -> GO2
+```
+
+The rule the whole design serves:
+
+> No motion command may reach the physical GO2 without passing through the
+> deterministic safety authority.
+
+The safety layer does not observe, score, annotate or recommend. It owns the
+actuator output. Everything upstream of it produces *candidates*; only the
+arbiter produces commands.
 
 ## Packages
 
-- `go2_audio_perception`: microphone-array localization and NeMo ASR bridge.
-- `go2_voice_commander`: Whisper-based command extraction from local microphone audio.
-- `go2_perception`: YOLOv8 person detection with depth back-projection from RealSense.
-- `go2_intent_grounding`: fuses voice, audio bearing, and detected humans into a confirmed navigation target.
-- `go2_safety_monitor`: depth-image hazard detection and safety state publication.
-- `go2_navigation`: Nav2 parameters and behavior trees.
-- `go2_bringup`: system launch entrypoints.
-- `go2_msgs`: custom interfaces shared across packages.
-- `go2_gait_controller`: lifecycle C++ gait controller for lower-level locomotion work.
+| Package | Role |
+|---|---|
+| `go2_audio_perception` | GCC-PHAT acoustic bearing; optional NeMo ASR |
+| `go2_voice_commander` | Whisper transcription and command parsing |
+| `go2_perception` | YOLOv8 human detection with depth back-projection |
+| `go2_safety_monitor` | Depth-based hazard detection (stairs, drops, narrow passages, proximity) |
+| `go2_intent_grounding` | Audio-visual fusion, caller confirmation state machine, goal emission |
+| `go2_approach_controller` | **Staged** candidate-motion producer; Nav2 compatibility stamper |
+| `go2_safety_arbiter` | **Final authority over all motion** |
+| `go2_hardware_bridge` | Adapter contract; dry-run and Unitree Sport API adapters |
+| `go2_navigation` | Nav2 parameters and behaviour tree (Stage 2) |
+| `go2_gait_controller` | C++ gait state machine, simulation only; its hardware bridge was removed |
+| `go2_bringup` | Canonical launch graph and versioned configuration |
+| `go2_msgs` | Message definitions |
 
-## System Invariants
+## Running it
 
-- `DetectedHumanArray.header.frame_id` is expected to be the camera optical frame.
-- `IntentGroundingNode` transforms camera-frame targets into `map` before publishing `/goal_pose`.
-- Audio bearing is treated as stale after `audio_timeout_sec`.
-- Safety output is advisory unless downstream navigation or locomotion code explicitly consumes `/go2/safety_alert`.
-- `go2_full.launch.py` is the real-hardware entrypoint and now fails fast when required packages or installed behavior-tree assets are missing.
+```bash
+ros2 launch go2_bringup system_dry_run.launch.py   # no hardware
+ros2 launch go2_bringup system.launch.py           # real perception, dry-run actuation
+```
 
-## Current Boundaries
+`hardware_adapter:=dry_run` is the default everywhere. Selecting a physical
+adapter is a deliberate act, and that adapter has never been executed against a
+GO2.
 
-- RealSense, Nav2, and Unitree runtime dependencies are external ROS packages and are not vendored here.
-- `use_sim:=true` is intentionally fenced off with a fail-fast launch stub. Simulation belongs in a dedicated sim workspace, not in this hardware repo.
-- No custom Nav2 safety BT plugin is implemented in this tree. Safety alerts are published, but full BT-level stop gating still requires downstream integration work.
+## Honesty boundaries
 
+* `/goal_pose` emission is not autonomous approach.
+* A safety monitor is not an arbiter unless it owns the actuator output.
+* A dry-run execution is not hardware validation.
+
+`docs/research_system_claims.md` states what the evidence supports.

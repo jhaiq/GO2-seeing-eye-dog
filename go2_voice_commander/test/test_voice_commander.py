@@ -1,19 +1,22 @@
 """Unit tests for voice command parsing and audio energy handling."""
 
 import sys
-from unittest.mock import MagicMock
+from pathlib import Path
 
 import numpy as np
 
-for _mod in [
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from conftest import mock_missing_modules  # noqa: E402
+
+# Only stand in for what is actually missing; see the helper's docstring.
+mock_missing_modules([
     "rclpy",
     "rclpy.node",
     "pyaudio",
     "whisper",
     "std_msgs",
     "std_msgs.msg",
-]:
-    sys.modules.setdefault(_mod, MagicMock())
+])
 
 from go2_voice_commander.voice_commander_node import compute_chunk_energy, parse_command
 

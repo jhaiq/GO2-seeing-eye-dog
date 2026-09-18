@@ -18,7 +18,12 @@
   <exec_depend>go2_gait_controller</exec_depend>
   <exec_depend>go2_navigation</exec_depend>
   <exec_depend>go2_msgs</exec_depend>
+  <exec_depend>go2_safety_arbiter</exec_depend>
+  <exec_depend>go2_hardware_bridge</exec_depend>
+  <exec_depend>go2_approach_controller</exec_depend>
+  <!-- Optional: only needed for planner:=nav2. -->
   <exec_depend>nav2_bringup</exec_depend>
+  <!-- Optional: only needed for perception:=real. -->
   <exec_depend>realsense2_camera</exec_depend>
 
   <export>

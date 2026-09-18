@@ -72,4 +72,17 @@ jobs:
           colcon build --symlink-install --packages-select \
             go2_audio_perception go2_perception go2_intent_grounding \
             go2_safety_monitor go2_voice_commander go2_navigation \
-            go2_bringup go2_gait_controller
+            go2_bringup go2_gait_controller \
+            go2_safety_arbiter go2_hardware_bridge go2_approach_controller
+
+      - name: Run the full suite, including the safety-authority proofs
+        run: |
+          . /opt/ros/humble/setup.sh
+          . install/setup.sh
+          # An isolated domain: these tests assert on what does and does not
+          # reach an actuator, so a foreign ROS graph could make them pass or
+          # fail for the wrong reason.
+          export ROS_DOMAIN_ID=42
+          export ROS_LOCALHOST_ONLY=1
+          pip install pytest pyyaml
+          python3 -m pytest -v
