@@ -11,6 +11,8 @@ from go2_lidar_safety.hazard_core import (
     HazardParams,
     evaluate,
     quaternion_matrix,
+    restrict,
+    severity,
     transform_points,
 )
 
@@ -38,7 +40,7 @@ def test_empty_cloud_is_clear():
 
 @pytest.mark.parametrize(
     "distance, expected",
-    [(0.2, EMERGENCY_STOP), (0.6, SLOWDOWN), (2.0, CLEAR)],
+    [(0.2, "RESTRICT:F"), (0.6, SLOWDOWN), (2.0, CLEAR)],
 )
 def test_obstacle_ahead_thresholds(distance, expected):
     result = evaluate(wall_ahead(distance), P)
@@ -59,7 +61,7 @@ def test_obstacle_beside_corridor_is_ignored_ahead():
 def test_corridor_edge_is_inclusive_of_margin():
     pts = wall_ahead(0.2, n=5)
     pts[:, 1] = P.corridor_half_width - 0.01
-    assert evaluate(pts, P).decision == EMERGENCY_STOP
+    assert "F" in evaluate(pts, P).decision
 
 
 def test_floor_only_is_clear():
@@ -94,7 +96,8 @@ def test_single_noise_point_does_not_stop():
 
 def test_min_obstacle_points_is_respected_exactly():
     pts = wall_ahead(0.1, n=P.min_obstacle_points)
-    assert evaluate(pts, P).decision == EMERGENCY_STOP
+    # 0.1 m ahead of the nose is also inside the rotation sweep: F and W.
+    assert evaluate(pts, P).decision == "RESTRICT:FW"
     pts = wall_ahead(0.1, n=P.min_obstacle_points - 1)
     assert evaluate(pts, P).decision == CLEAR
 
@@ -113,12 +116,13 @@ def test_all_nan_cloud_is_clear_with_zero_points():
     assert result.points_evaluated == 0
 
 
-def test_obstacle_hugging_the_side_derates():
-    # A wall 0.1 m from the flank, alongside the body, not ahead.
+def test_obstacle_hugging_the_side_forbids_rotation_only():
+    # A wall 0.1 m from the flank, alongside the body, not ahead: a turn would
+    # swing a corner into it, but driving straight past is safe.
     xs = np.linspace(P.body_x_min, P.body_x_max, 10)
     pts = np.column_stack([xs, np.full(10, P.body_half_width + 0.1), np.full(10, 0.1)])
     result = evaluate(pts, P)
-    assert result.decision == SLOWDOWN
+    assert result.decision == "RESTRICT:W"
     assert result.nearest_surround_m == pytest.approx(0.1)
     assert result.distance == pytest.approx(0.1)
 
@@ -145,9 +149,38 @@ def test_drop_check_flags_missing_floor():
     assert result.floor_points_ahead == 0
 
 
-def test_emergency_stop_outranks_drop():
+def test_drop_outranks_a_directional_restriction():
     params = HazardParams(drop_check_enabled=True)
-    assert evaluate(wall_ahead(0.1), params).decision == EMERGENCY_STOP
+    assert evaluate(wall_ahead(0.1), params).decision == DROP_DETECTED
+
+
+def test_boxed_in_is_an_emergency_stop_and_outranks_drop():
+    params = HazardParams(drop_check_enabled=True)
+    behind = wall_ahead(0.1)
+    behind[:, 0] = P.body_x_min - 0.1
+    assert evaluate(np.vstack([wall_ahead(0.1), behind]), params).decision == EMERGENCY_STOP
+
+
+def test_obstacle_close_behind_forbids_reverse():
+    pts = wall_ahead(0.1)
+    pts[:, 0] = P.body_x_min - 0.2  # 0.2 m behind the tail, beyond the sweep radius
+    assert evaluate(pts, P).decision == "RESTRICT:B"
+
+
+def test_doorway_allows_straight_travel_but_not_rotation():
+    # 1.0 m doorway: frames 0.5 m either side of the centreline, alongside.
+    xs = np.linspace(-0.2, 0.2, 8)
+    left = np.column_stack([xs, np.full(8, 0.5), np.full(8, 0.2)])
+    right = np.column_stack([xs, np.full(8, -0.5), np.full(8, 0.2)])
+    result = evaluate(np.vstack([left, right]), P)
+    assert result.decision == "RESTRICT:W"
+
+
+def test_restriction_strings_and_severity_order():
+    assert restrict("WF") == "RESTRICT:FW"
+    assert restrict("BWF") == EMERGENCY_STOP
+    assert severity(EMERGENCY_STOP) > severity(DROP_DETECTED) > severity("RESTRICT:FB")
+    assert severity("RESTRICT:FB") > severity("RESTRICT:F") > severity(SLOWDOWN) > severity(CLEAR)
 
 
 @pytest.mark.parametrize(

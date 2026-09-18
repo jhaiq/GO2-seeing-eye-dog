@@ -99,9 +99,9 @@ class TestPublishingContract:
         graph, build, source, pub, states, alerts, _statuses = hazard_setup
         build()
         graph.spin_for(1.0, each=publisher_at(15, lambda: pub.publish(make_cloud(source, wall(0.2)))))
-        assert states and set(states) == {"EMERGENCY_STOP"}
+        assert states and set(states) == {"RESTRICT:F"}
         assert alerts
-        assert alerts[-1].alert_type == "EMERGENCY_STOP"
+        assert alerts[-1].alert_type == "RESTRICT:F"
         assert alerts[-1].distance == pytest.approx(0.2, abs=1e-3)
 
     def test_slowdown_is_reported(self, hazard_setup):
@@ -148,7 +148,7 @@ class TestPublishingContract:
                 ),
             ),
         )
-        assert states and states[-1] == "EMERGENCY_STOP"
+        assert states and states[-1] == "RESTRICT:F"
         assert alerts[-1].distance == pytest.approx(0.2, abs=1e-3)
 
     def test_stale_cloud_publishes_nothing(self, hazard_setup):
@@ -202,16 +202,17 @@ def chain_setup(graph):
     sink = graph.make_node("safe_sink")
     sink.create_subscription(SafeVelocityCommand, "cmd_vel_safe", received.append, control_qos)
 
-    def candidate(vx=0.2):
+    def candidate(vx=0.2, wz=0.0):
         msg = TwistStamped()
         msg.header.stamp = source.get_clock().now().to_msg()
         msg.header.frame_id = "base_link"
         msg.twist.linear.x = float(vx)
+        msg.twist.angular.z = float(wz)
         candidate_pub.publish(msg)
 
-    def drive(points):
+    def drive(points, vx=0.2, wz=0.0):
         send_cloud = publisher_at(15, lambda: cloud_pub.publish(make_cloud(source, points)))
-        send_candidate = publisher_at(20, candidate)
+        send_candidate = publisher_at(20, lambda: candidate(vx, wz))
 
         def each():
             send_cloud()
@@ -234,7 +235,21 @@ class TestWithRealArbiter:
         graph.spin_for(2.0, each=drive(np.vstack([floor_points(), wall(0.2)])))
         assert received
         assert all(m.twist.linear.x == 0.0 for m in received)
-        assert any("HAZARD_STOP" in list(m.reason_codes) for m in received)
+        assert any("HAZARD_DIRECTIONAL" in list(m.reason_codes) for m in received)
+
+    def test_obstacle_ahead_still_permits_turning_away(self, chain_setup):
+        """The deadlock fix: forward is forbidden, rotation is not (derated)."""
+        graph, received, drive = chain_setup
+        graph.spin_for(2.5, each=drive(np.vstack([floor_points(), wall(0.2)]), vx=0.2, wz=0.5))
+        assert received
+        assert all(m.twist.linear.x <= 0.0 for m in received)
+        assert max(m.twist.angular.z for m in received) > 0.1
+
+    def test_obstacle_ahead_permits_reversing(self, chain_setup):
+        graph, received, drive = chain_setup
+        graph.spin_for(2.5, each=drive(np.vstack([floor_points(), wall(0.2)]), vx=-0.2))
+        assert received
+        assert min(m.twist.linear.x for m in received) < -0.05
 
     def test_slowdown_derates_to_degraded_scale(self, chain_setup):
         graph, received, drive = chain_setup

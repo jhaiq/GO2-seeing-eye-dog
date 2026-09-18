@@ -57,6 +57,7 @@ from go2_safety_arbiter.core import (
     SafetyArbiterCore,
     SafetyContext,
     Velocity,
+    parse_restriction,
 )
 from go2_safety_arbiter.limits import (
     LimitConfigError,
@@ -72,14 +73,18 @@ from go2_safety_arbiter.reasons import Reason, SafetyState
 def _hazard_severity(hazard: str) -> int:
     """Rank hazard types so the most restrictive channel wins a disagreement."""
     if hazard in HAZARD_STOP_TYPES:
-        return 3
+        return 10
+    restriction = parse_restriction(hazard)
+    if restriction is not None:
+        return 3 + len(restriction)
     if hazard in HAZARD_SLOWDOWN_TYPES:
         return 2
     if hazard in HAZARD_CLEAR_TYPES:
         return 0
-    # Unrecognised. Ranked ABOVE clear, so an unknown alert type can never be
-    # outvoted by a "CLEAR" on the other channel. The core turns it into a stop.
-    return 1
+    # Unrecognised. The core turns it into a stop, so it must outrank every
+    # motion-permitting type on the other channel (it used to rank below
+    # SLOWDOWN, so "SLOWDOWN" on one channel outvoted an unknown alert).
+    return 11
 
 
 CONTROL_QOS = QoSProfile(

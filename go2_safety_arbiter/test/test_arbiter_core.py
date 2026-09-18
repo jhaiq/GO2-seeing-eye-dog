@@ -454,3 +454,61 @@ class TestBookkeeping:
         for i in range(7):
             core.evaluate(None, clear_context(), T0 + i)
         assert core.decision_count == 7
+
+
+class TestDirectionalHazards:
+    """RESTRICT:<F|B|W> forbids only the motion that would hit the obstacle.
+
+    A total stop for "obstacle ahead" deadlocked the robot in closed-loop sim:
+    it could not turn or back away from the furniture that stopped it.
+    """
+
+    def _after(self, hazard, velocity):
+        core = make_core()
+        settle(core, lambda t: clear_context(t), velocity=velocity)  # moving already
+        t = T0 + 60 * PERIOD
+        return core.evaluate(Candidate(velocity, t), clear_context(t, hazard_type=hazard), t)
+
+    def test_forward_blocked_zeroes_forward_on_the_same_tick(self):
+        decision = self._after("RESTRICT:F", Velocity(0.3, 0.0, 0.0))
+        assert decision.velocity.vx == 0.0  # no slew ramp-down into the obstacle
+        assert Reason.HAZARD_DIRECTIONAL in decision.reason_codes
+        assert decision.state == SafetyState.DEGRADED
+
+    def test_forward_blocked_permits_rotation_and_reverse_derated(self):
+        core = make_core()
+        d = settle(core, lambda t: clear_context(t, hazard_type="RESTRICT:F"),
+                   velocity=Velocity(-0.3, 0.0, 0.5))
+        assert d.velocity.vx < 0.0
+        assert d.velocity.wz > 0.0
+        scaled = VelocityLimits().scaled(VelocityLimits().degraded_scale)
+        assert abs(d.velocity.vx) <= scaled.max_vx + 1e-12
+        assert abs(d.velocity.wz) <= scaled.max_wz + 1e-12
+
+    def test_backward_blocked_forbids_only_reverse(self):
+        core = make_core()
+        d = settle(core, lambda t: clear_context(t, hazard_type="RESTRICT:B"),
+                   velocity=Velocity(-0.3, 0.0, 0.0))
+        assert d.velocity.vx == 0.0
+        d = settle(core, lambda t: clear_context(t, hazard_type="RESTRICT:B"),
+                   velocity=Velocity(0.3, 0.0, 0.0))
+        assert d.velocity.vx > 0.0
+
+    def test_rotation_blocked_zeroes_yaw_and_lateral(self):
+        decision = self._after("RESTRICT:W", Velocity(0.2, 0.1, 0.4))
+        assert decision.velocity.wz == 0.0
+        assert decision.velocity.vy == 0.0
+        assert decision.velocity.vx > 0.0
+
+    def test_every_direction_blocked_is_a_stop(self):
+        decision = self._after("RESTRICT:FBW", Velocity(0.2, 0.0, 0.2))
+        assert decision.is_stop()
+        assert Reason.HAZARD_STOP in decision.reason_codes
+
+    @pytest.mark.parametrize("bad", ["RESTRICT:", "RESTRICT:X", "RESTRICT:FZ", "RESTRICT: F"])
+    def test_malformed_restriction_is_an_unknown_hazard_and_stops(self, bad):
+        # A turning candidate discriminates: any valid F restriction would let
+        # the rotation through; a stop does not.
+        decision = self._after(bad, Velocity(0.2, 0.0, 0.3))
+        assert decision.state == SafetyState.STOPPED
+        assert decision.velocity.is_zero()

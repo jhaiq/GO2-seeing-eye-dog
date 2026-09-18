@@ -10,7 +10,17 @@ vocabulary (``go2_safety_arbiter.core``):
   authorizes zero and latches them for ``hazard_clear_hold_sec``.
 * ``SLOWDOWN`` is slowdown-class. The arbiter scales every limit by
   ``degraded_scale`` and does not latch it.
+* ``RESTRICT:<flags>`` is directional. F forbids forward, B backward, W
+  rotation; lateral motion is always forbidden under a restriction. The
+  arbiter derates and zeroes only the forbidden components, immediately.
 * ``CLEAR`` permits motion subject to limits.
+
+Why directional. The first version asserted EMERGENCY_STOP whenever an
+obstacle was within stop_distance ahead. The arbiter latches stops as total,
+so the robot could not turn or back away either: in closed-loop sim the robot
+deadlocked in front of furniture on its first turn and never recovered
+(HAZARD_STOP on every tick for the rest of the run). A total stop is now
+reserved for "no direction is safe" (F, B and W all restricted).
 
 Distances "ahead" are measured from the FRONT FACE of the body box, not from
 the ``base_link`` origin, so ``stop_distance_m`` means clearance in front of
@@ -28,9 +38,32 @@ CLEAR = "CLEAR"
 SLOWDOWN = "SLOWDOWN"
 EMERGENCY_STOP = "EMERGENCY_STOP"
 DROP_DETECTED = "DROP_DETECTED"
+RESTRICT_PREFIX = "RESTRICT:"
 
-#: Higher wins. Same ordering as go2_safety_monitor.
-SEVERITY = {EMERGENCY_STOP: 4, DROP_DETECTED: 3, SLOWDOWN: 1, CLEAR: 0}
+
+def restrict(flags: str) -> str:
+    """Canonical restriction string, flags in F, B, W order."""
+    ordered = "".join(f for f in "FBW" if f in flags)
+    if ordered == "FBW":
+        return EMERGENCY_STOP
+    return RESTRICT_PREFIX + ordered
+
+
+def severity(decision: str) -> int:
+    """Higher wins when merging decisions."""
+    if decision == EMERGENCY_STOP:
+        return 10
+    if decision == DROP_DETECTED:
+        return 9
+    if decision.startswith(RESTRICT_PREFIX):
+        return 2 + len(decision) - len(RESTRICT_PREFIX)
+    if decision == SLOWDOWN:
+        return 1
+    return 0
+
+
+#: Kept for callers that index by name; see severity() for RESTRICT strings.
+SEVERITY = {EMERGENCY_STOP: 10, DROP_DETECTED: 9, SLOWDOWN: 1, CLEAR: 0}
 
 
 @dataclass(frozen=True)
@@ -54,6 +87,14 @@ class HazardParams:
     stop_distance_m: float = 0.35
     slowdown_distance_m: float = 0.90
 
+    # Behind the tail: backward motion is forbidden inside this distance.
+    rear_stop_distance_m: float = 0.30
+
+    # Rotation sweep: the body box's corners trace a circle of radius
+    # hypot(max(|body_x_min|, body_x_max), body_half_width). An obstacle inside
+    # that circle plus this margin forbids rotation (a turn would hit it).
+    sweep_margin_m: float = 0.05
+
     # All-around guard: an obstacle this close to any side of the body box
     # derates motion (SLOWDOWN, not a stop, so the robot can still turn away).
     surround_radius_m: float = 0.15
@@ -73,7 +114,8 @@ class HazardParams:
     def __post_init__(self) -> None:
         for name in ("stop_distance_m", "slowdown_distance_m", "lookahead_m",
                      "corridor_margin", "footprint_half_width", "body_half_width",
-                     "surround_radius_m", "floor_tolerance_m"):
+                     "surround_radius_m", "floor_tolerance_m",
+                     "rear_stop_distance_m", "sweep_margin_m"):
             value = getattr(self, name)
             if not math.isfinite(value) or value < 0.0:
                 raise ValueError(f"{name} must be finite and >= 0, got {value}")
@@ -92,12 +134,19 @@ class HazardParams:
     def corridor_half_width(self) -> float:
         return self.footprint_half_width + self.corridor_margin
 
+    @property
+    def sweep_radius(self) -> float:
+        reach = max(abs(self.body_x_min), abs(self.body_x_max))
+        return math.hypot(reach, self.body_half_width) + self.sweep_margin_m
+
 
 @dataclass(frozen=True)
 class HazardDecision:
     decision: str
     nearest_ahead_m: float
     nearest_surround_m: float
+    nearest_rear_m: float
+    nearest_sweep_m: float
     floor_points_ahead: Optional[int]
     points_evaluated: int
     description: str
@@ -107,6 +156,8 @@ class HazardDecision:
         """Distance reported in SafetyAlert.distance for this decision."""
         if self.decision == SLOWDOWN and self.nearest_ahead_m > self.nearest_surround_m:
             return self.nearest_surround_m
+        if self.decision.startswith(RESTRICT_PREFIX) or self.decision == EMERGENCY_STOP:
+            return min(self.nearest_ahead_m, self.nearest_rear_m, self.nearest_surround_m)
         return self.nearest_ahead_m
 
 
@@ -147,11 +198,32 @@ def evaluate(points_base: np.ndarray, params: HazardParams) -> HazardDecision:
     box_dist = np.hypot(dx, dy)
     nearest_surround = _kth_smallest(box_dist, params.min_obstacle_points)
 
+    # Behind: inside the corridor width, beyond the tail.
+    rear_dist = params.body_x_min - ox
+    in_rear = (rear_dist >= 0.0) & (rear_dist <= params.lookahead_m) & (
+        np.abs(oy) <= params.corridor_half_width
+    )
+    nearest_rear = _kth_smallest(rear_dist[in_rear], params.min_obstacle_points)
+
+    # Rotation sweep: radial distance of obstacles from base_link.
+    nearest_sweep = _kth_smallest(np.hypot(ox, oy), params.min_obstacle_points)
+
+    flags = ""
+    if nearest_ahead < params.stop_distance_m:
+        flags += "F"
+    if nearest_rear < params.rear_stop_distance_m:
+        flags += "B"
+    if nearest_sweep < params.sweep_radius:
+        flags += "W"
+
     decision = CLEAR
     description = "no obstacle in corridor"
-    if nearest_ahead < params.stop_distance_m:
-        decision = EMERGENCY_STOP
-        description = f"obstacle {nearest_ahead:.2f} m ahead (stop < {params.stop_distance_m:.2f})"
+    if flags:
+        decision = restrict(flags)
+        description = (
+            f"restricted {flags}: ahead {nearest_ahead:.2f} m, rear {nearest_rear:.2f} m, "
+            f"sweep {nearest_sweep:.2f} m (< {params.sweep_radius:.2f})"
+        )
     elif nearest_ahead < params.slowdown_distance_m:
         decision = SLOWDOWN
         description = (
@@ -171,7 +243,7 @@ def evaluate(points_base: np.ndarray, params: HazardParams) -> HazardDecision:
             & (np.abs(z - params.floor_z) <= params.floor_tolerance_m)
         )
         floor_count = int(np.count_nonzero(floor))
-        if floor_count < params.min_floor_points and SEVERITY[DROP_DETECTED] > SEVERITY[decision]:
+        if floor_count < params.min_floor_points and severity(DROP_DETECTED) > severity(decision):
             decision = DROP_DETECTED
             description = (
                 f"only {floor_count} floor returns {params.drop_band_near_m:.1f}-"
@@ -182,6 +254,8 @@ def evaluate(points_base: np.ndarray, params: HazardParams) -> HazardDecision:
         decision=decision,
         nearest_ahead_m=nearest_ahead,
         nearest_surround_m=nearest_surround,
+        nearest_rear_m=nearest_rear,
+        nearest_sweep_m=nearest_sweep,
         floor_points_ahead=floor_count,
         points_evaluated=n_total,
         description=description,

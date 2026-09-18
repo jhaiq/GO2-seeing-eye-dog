@@ -330,3 +330,14 @@ class TestC3WatchdogsUseSteadyTime:
         first = node._steady_now()
         time.sleep(0.25)
         assert node._steady_now() - first >= 0.2
+
+
+def test_unknown_hazard_outranks_every_motion_permitting_type():
+    """Regression: an unrecognised hazard ranked below SLOWDOWN, so SLOWDOWN
+    on the other channel outvoted it and motion continued."""
+    pytest.importorskip("rclpy")
+    from go2_safety_arbiter.safety_arbiter_node import _hazard_severity
+
+    for permitting in ("CLEAR", "SLOWDOWN", "NARROW_PASSAGE", "RESTRICT:F", "RESTRICT:FW"):
+        assert _hazard_severity("SOMETHING_NEW") > _hazard_severity(permitting)
+    assert _hazard_severity("RESTRICT:FB") > _hazard_severity("RESTRICT:F") > _hazard_severity("SLOWDOWN")

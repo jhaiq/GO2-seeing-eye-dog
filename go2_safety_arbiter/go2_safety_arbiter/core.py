@@ -38,6 +38,21 @@ from go2_safety_arbiter.reasons import Reason, SafetyState
 HAZARD_STOP_TYPES = frozenset({"EMERGENCY_STOP", "STAIRS_DETECTED", "DROP_DETECTED"})
 HAZARD_SLOWDOWN_TYPES = frozenset({"SLOWDOWN", "NARROW_PASSAGE"})
 HAZARD_CLEAR_TYPES = frozenset({"CLEAR", ""})
+#: Directional hazards: "RESTRICT:" followed by one or more of F (no forward
+#: vx), B (no backward vx), W (no rotation). Lateral vy is always zeroed under
+#: a restriction. Any other suffix is treated as an unknown hazard (stop).
+HAZARD_RESTRICT_PREFIX = "RESTRICT:"
+HAZARD_RESTRICT_FLAGS = frozenset("FBW")
+
+
+def parse_restriction(hazard: str) -> Optional[frozenset]:
+    """Flags of a well-formed RESTRICT hazard, else None."""
+    if not hazard.startswith(HAZARD_RESTRICT_PREFIX):
+        return None
+    flags = hazard[len(HAZARD_RESTRICT_PREFIX):]
+    if not flags or set(flags) - HAZARD_RESTRICT_FLAGS:
+        return None
+    return frozenset(flags)
 
 
 @dataclass(frozen=True)
@@ -317,6 +332,7 @@ class SafetyArbiterCore:
         # ── Safety context requirements ────────────────────────────────
         reasons: List[str] = []
         degraded = False
+        restriction: Optional[frozenset] = None
 
         if self._requirements.require_hazard_context:
             if context.hazard_stamp is None or context.hazard_type is None:
@@ -328,7 +344,13 @@ class SafetyArbiterCore:
             hazard = (context.hazard_type or "").strip().upper()
             if hazard in HAZARD_STOP_TYPES:
                 return self._stop(SafetyState.STOPPED, [Reason.HAZARD_STOP], age)
-            if hazard in HAZARD_SLOWDOWN_TYPES:
+            restriction = parse_restriction(hazard)
+            if restriction is not None:
+                if restriction >= HAZARD_RESTRICT_FLAGS:
+                    return self._stop(SafetyState.STOPPED, [Reason.HAZARD_STOP], age)
+                degraded = True
+                reasons.append(Reason.HAZARD_DIRECTIONAL)
+            elif hazard in HAZARD_SLOWDOWN_TYPES:
                 degraded = True
                 reasons.append(Reason.HAZARD_SLOWDOWN)
             elif hazard not in HAZARD_CLEAR_TYPES:
@@ -361,6 +383,18 @@ class SafetyArbiterCore:
         wz, sw = _slew(wz, prev.wz, max_dw)
         if sx or sy or sw:
             reasons.append(Reason.ACCEL_LIMIT)
+
+        # Directional restriction is applied AFTER slew limiting, so a
+        # forbidden component drops to zero on this tick instead of ramping
+        # down (ramping would keep driving into the obstacle for seconds).
+        if restriction is not None:
+            vy = 0.0
+            if "F" in restriction:
+                vx = min(vx, 0.0)
+            if "B" in restriction:
+                vx = max(vx, 0.0)
+            if "W" in restriction:
+                wz = 0.0
 
         authorized = Velocity(vx, vy, wz)
         state = SafetyState.DEGRADED if degraded else SafetyState.SAFE_TO_MOVE

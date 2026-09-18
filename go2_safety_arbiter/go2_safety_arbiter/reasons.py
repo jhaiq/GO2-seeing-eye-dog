@@ -58,6 +58,9 @@ class Reason:
     HAZARD_STOP = "HAZARD_STOP"
     #: A hazard requiring derated motion is currently asserted.
     HAZARD_SLOWDOWN = "HAZARD_SLOWDOWN"
+    #: A directional hazard (RESTRICT:<F|B|W>) forbade some motion components;
+    #: the forbidden ones were zeroed and the rest derated.
+    HAZARD_DIRECTIONAL = "HAZARD_DIRECTIONAL"
     #: Localization required by policy is missing or stale.
     NO_LOCALIZATION = "NO_LOCALIZATION"
     #: Emergency stop is engaged.
