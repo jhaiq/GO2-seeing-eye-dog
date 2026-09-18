@@ -1,0 +1,59 @@
+# ============================================================================
+# lidar_safety.yaml: camera-free hazard source for the safety arbiter.
+#
+# Every distance is a conservative desk default, hardware_validated: false.
+# Distances "ahead" are measured from the front face of the body box
+# (body_x_max), not from the base_link origin.
+# ============================================================================
+lidar_hazard_node:
+  ros__parameters:
+    base_frame: base_link
+    # unit: Hz | evaluation timer. Each received cloud is evaluated at most once.
+    eval_rate_hz: 20.0
+    # unit: s | receipt age (steady clock) beyond which a cloud is not
+    #   evaluated and nothing is published, so the arbiter stops on
+    #   hazard_max_age_sec. The L1 publishes at ~15 Hz (measured 15.4 Hz).
+    max_cloud_age_s: 0.5
+    # unit: s | header stamp vs node clock. 0 disables. Enable only after the
+    #   robot-clock offset is corrected upstream (robot stamps were measured
+    #   ~320 days behind the payload clock on 2026-09-01).
+    max_stamp_age_s: 0.0
+    tf_timeout_s: 0.05
+
+    # Height band relative to base_link (~0.32 m above floor standing).
+    z_min: -0.22
+    z_max: 0.60
+
+    # Self-return box. GO2 body ~0.70 x 0.31 m.
+    body_x_min: -0.45
+    body_x_max: 0.40
+    body_half_width: 0.22
+
+    footprint_half_width: 0.20
+    corridor_margin: 0.10
+    lookahead_m: 3.0
+
+    # unit: m ahead of the nose | stop-class: arbiter authorizes zero and
+    #   latches for hazard_clear_hold_sec.
+    stop_distance_m: 0.35
+    # unit: m ahead of the nose | slowdown-class: arbiter scales limits by
+    #   degraded_scale (0.35 -> 0.14 m/s). Not latched.
+    slowdown_distance_m: 0.90
+    # unit: m from any side of the body box | SLOWDOWN only.
+    surround_radius_m: 0.15
+    # Returns needed at or inside an obstacle's distance for it to count.
+    min_obstacle_points: 3
+
+    # Drop-off check. DISABLED by default: the real L1 cloud arrives in its
+    # own tilted sensor frame and the base_link->utlidar_lidar extrinsic is not
+    # yet calibrated (measured floor tilt ~14 deg in the sensor frame, with an
+    # unresolved yaw). With a wrong extrinsic the floor band lands in the wrong
+    # place and this check either fires constantly (the 36% false-alarm rate
+    # measured at standing height in docs/go2_field_notes.md section 5) or
+    # never. Enable only after calibration from a STANDING capture.
+    drop_check_enabled: false
+    floor_z: -0.32
+    floor_tolerance_m: 0.08
+    drop_band_near_m: 0.30
+    drop_band_far_m: 0.80
+    min_floor_points: 10

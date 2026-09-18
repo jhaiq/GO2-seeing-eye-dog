@@ -98,7 +98,8 @@ echo "── Verifying installed executables ───────────�
 for exe in \
   "go2_safety_arbiter safety_arbiter_node" \
   "go2_hardware_bridge hardware_bridge_node" \
-  "go2_approach_controller approach_controller_node"
+  "go2_approach_controller approach_controller_node" \
+  "go2_lidar_safety lidar_hazard_node"
 do
   # shellcheck disable=SC2086
   set -- $exe
