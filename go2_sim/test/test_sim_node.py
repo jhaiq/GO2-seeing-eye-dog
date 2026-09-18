@@ -227,3 +227,30 @@ class TestRealUnitreeAdapter:
         # At a bridge-like rate every request is answered and matchable by id.
         assert len(answered) == len(ids)
         assert ids[-1] in answered
+
+    def test_connect_waits_for_a_late_sport_service(self, graph):
+        """Regression: the bridge exited at launch when DDS discovery of the
+        sport service lagged construction (2 of 8 closed-loop runs)."""
+        import threading
+        import time as _time
+
+        from go2_hardware_bridge.unitree_sport import UnitreeSportBridge
+
+        node = graph.make_node("late_bridge_host")
+        adapter = UnitreeSportBridge(node, require_subscriber=True, discovery_timeout_sec=5.0)
+        started = threading.Timer(1.5, lambda: _make_sim(graph))
+        started.start()
+        t0 = _time.monotonic()
+        assert adapter.connect()
+        waited = _time.monotonic() - t0
+        started.join()
+        assert 1.0 < waited < 5.0
+
+    def test_connect_still_fails_closed_without_a_sport_service(self, graph):
+        from go2_hardware_bridge.interface import HardwareBridgeError
+        from go2_hardware_bridge.unitree_sport import UnitreeSportBridge
+
+        node = graph.make_node("lonely_bridge_host")
+        adapter = UnitreeSportBridge(node, require_subscriber=True, discovery_timeout_sec=0.5)
+        with pytest.raises(HardwareBridgeError):
+            adapter.connect()

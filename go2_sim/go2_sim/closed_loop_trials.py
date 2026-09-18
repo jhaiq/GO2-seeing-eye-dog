@@ -27,12 +27,18 @@ import signal
 import subprocess
 import sys
 import time
+from collections import Counter
 from pathlib import Path
 
 DEFAULT_GOALS = [(3.0, 3.5), (9.5, 2.0), (10.0, 4.4), (6.0, 4.4), (1.5, 1.5)]
 
 
-def _launch(domain: int, planner: str, log_path: Path) -> subprocess.Popen:
+BAG_TOPICS = ["/plan", "/tf", "/tf_static", "/go2/safety/status", "/go2/localization/status",
+              "/cmd_vel", "/cmd_vel_candidate", "/go2_sim/ground_truth", "/go2/safety_state",
+              "/go2/safety_alert", "/navigate_to_pose/_action/status", "/local_plan"]
+
+
+def _launch(domain: int, planner: str, log_path: Path, bag: Path | None = None) -> subprocess.Popen:
     env = dict(os.environ, ROS_DOMAIN_ID=str(domain), ROS_LOCALHOST_ONLY="1")
     world = subprocess.check_output(["ros2", "pkg", "prefix", "go2_sim"], text=True).strip()
     world += "/share/go2_sim/worlds/apartment.yaml"
@@ -40,8 +46,11 @@ def _launch(domain: int, planner: str, log_path: Path) -> subprocess.Popen:
         f"ros2 launch go2_sim sim.launch.py world_file:={world} & "
         f"sleep 2; ros2 launch go2_bringup system.launch.py perception:=none planner:={planner} "
         "localization:=slam_mapping lidar_safety:=true hardware_adapter:=unitree_sport "
-        "cloud_in_topic:=/utlidar/cloud_deskewed & wait"
+        "cloud_in_topic:=/utlidar/cloud_deskewed & "
     )
+    if bag is not None:
+        cmd += f"sleep 3; ros2 bag record -o {bag} {' '.join(BAG_TOPICS)} & "
+    cmd += "wait"
     return subprocess.Popen(
         ["bash", "-c", cmd], env=env, stdout=open(log_path, "w"), stderr=subprocess.STDOUT,
         start_new_session=True,
@@ -64,17 +73,30 @@ def _run_goals(goals, goal_timeout: float, ready_timeout: float) -> dict:
     from geometry_msgs.msg import PoseStamped
     from nav2_msgs.action import NavigateToPose
     from rclpy.action import ActionClient
-    from std_msgs.msg import Bool, UInt32
+    from std_msgs.msg import Bool, String, UInt32
 
     from go2_msgs.msg import SafetyStatus
 
     rclpy.init()
     node = rclpy.create_node("closed_loop_trials")
-    state = {"valid": False, "gt": None, "collisions": 0, "safety": None, "max_speed": 0.0}
-    node.create_subscription(Bool, "/go2/localization_valid", lambda m: state.update(valid=m.data), 10)
+    state = {"valid": False, "gt": None, "collisions": 0, "safety": None,
+             "reasons": Counter(), "hazard": Counter(), "invalid": 0}
+
+    def on_safety(m):
+        state["safety"] = m
+        for code in m.reason_codes:
+            state["reasons"][code] += 1
+
+    def on_valid(m):
+        state["valid"] = m.data
+        if not m.data:
+            state["invalid"] += 1
+    node.create_subscription(Bool, "/go2/localization_valid", on_valid, 10)
+    node.create_subscription(String, "/go2/safety_state",
+                             lambda m: state["hazard"].update([m.data]), 10)
     node.create_subscription(PoseStamped, "/go2_sim/ground_truth", lambda m: state.update(gt=m), 10)
     node.create_subscription(UInt32, "/go2_sim/collisions", lambda m: state.update(collisions=m.data), 10)
-    node.create_subscription(SafetyStatus, "/go2/safety/status", lambda m: state.update(safety=m), 10)
+    node.create_subscription(SafetyStatus, "/go2/safety/status", on_safety, 10)
     client = ActionClient(node, NavigateToPose, "/navigate_to_pose")
 
     def spin_until(pred, timeout):
@@ -102,6 +124,9 @@ def _run_goals(goals, goal_timeout: float, ready_timeout: float) -> dict:
         t0 = time.monotonic()
         dec0 = state["safety"].decision_count if state["safety"] else 0
         int0 = state["safety"].intervention_count if state["safety"] else 0
+        state["reasons"].clear()
+        state["hazard"].clear()
+        state["invalid"] = 0
         send = client.send_goal_async(goal)
         spin_until(send.done, 5.0)
         handle = send.result() if send.done() else None
@@ -125,6 +150,9 @@ def _run_goals(goals, goal_timeout: float, ready_timeout: float) -> dict:
             "collisions_total": int(state["collisions"]),
             "arbiter_decisions": (s.decision_count - dec0) if s else None,
             "arbiter_interventions": (s.intervention_count - int0) if s else None,
+            "arbiter_reason_counts": dict(state["reasons"]),
+            "hazard_state_counts": dict(state["hazard"]),
+            "localization_invalid_msgs": state["invalid"],
         })
     node.destroy_node()
     rclpy.shutdown()
@@ -139,6 +167,7 @@ def main(argv=None) -> int:
     ap.add_argument("--ready-timeout", type=float, default=90.0)
     ap.add_argument("--domain-base", type=int, default=150)
     ap.add_argument("--out", default="closed_loop_trials")
+    ap.add_argument("--bag", action="store_true", help="record /plan, TF and safety topics per trial")
     args = ap.parse_args(argv)
 
     out_dir = Path(args.out)
@@ -147,7 +176,7 @@ def main(argv=None) -> int:
     for i in range(args.trials):
         domain = args.domain_base + i
         log = out_dir / f"trial_{i}.log"
-        proc = _launch(domain, args.planner, log)
+        proc = _launch(domain, args.planner, log, out_dir / f"bag_{i}" if args.bag else None)
         try:
             env_domain = os.environ.get("ROS_DOMAIN_ID")
             os.environ["ROS_DOMAIN_ID"] = str(domain)

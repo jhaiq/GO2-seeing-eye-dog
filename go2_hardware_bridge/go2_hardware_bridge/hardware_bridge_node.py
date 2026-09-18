@@ -128,6 +128,9 @@ def build_adapter(node: Node, kind: str, log_path: str) -> HardwareBridgeInterfa
             require_subscriber=bool(
                 node.get_parameter("adapter_require_subscriber").value
             ),
+            discovery_timeout_sec=float(
+                node.get_parameter("adapter_discovery_timeout_sec").value
+            ),
         )
     raise HardwareBridgeError(
         f"Unknown hardware_adapter {kind!r}. Valid values: dry_run, unitree_sport."
@@ -150,6 +153,9 @@ class HardwareBridgeNode(Node):
         self.declare_parameter("max_command_lifetime_sec", 2.0)
         self.declare_parameter("adapter_command_hold_sec", 0.2)
         self.declare_parameter("adapter_require_subscriber", True)
+        # unit: s | meaning: how long connect() waits for DDS discovery of the
+        #       sport service before failing closed.
+        self.declare_parameter("adapter_discovery_timeout_sec", 10.0)
         self.declare_parameter("max_consecutive_transmit_failures", 3)
 
         self._watchdog = float(self.get_parameter("watchdog_timeout_sec").value)

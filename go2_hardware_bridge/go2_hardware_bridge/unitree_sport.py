@@ -92,6 +92,7 @@ class UnitreeSportBridge(HardwareBridgeInterface):
         qos_depth: int = 1,
         command_hold_sec: float = 0.2,
         require_subscriber: bool = True,
+        discovery_timeout_sec: float = 10.0,
     ) -> None:
         try:
             from unitree_api.msg import Request  # noqa: PLC0415 — optional dependency
@@ -111,6 +112,7 @@ class UnitreeSportBridge(HardwareBridgeInterface):
         self._topic = topic
         self._command_hold = float(command_hold_sec)
         self._require_subscriber = bool(require_subscriber)
+        self._discovery_timeout = max(0.0, float(discovery_timeout_sec))
         self._last_move_time: Optional[float] = None
         self._holding_nonzero = False
 
@@ -121,6 +123,14 @@ class UnitreeSportBridge(HardwareBridgeInterface):
         # fire-and-forget publisher. "Connected" here means the publisher
         # exists and at least one subscriber (the sport service) is visible.
         # This is an honest, weak liveness signal and is reported as such.
+        #
+        # DDS discovery is not instantaneous. Checking once at construction
+        # raced the sport service in closed-loop sim: the bridge exited at
+        # launch in 2 of 8 runs and every authorized command went nowhere. The
+        # graph cache updates without spinning, so poll for a bounded time.
+        deadline = time.monotonic() + self._discovery_timeout
+        while self._pub.get_subscription_count() == 0 and time.monotonic() < deadline:
+            time.sleep(0.05)
         with self._lock:
             subscribers = self._pub.get_subscription_count()
             connected = subscribers > 0
@@ -134,7 +144,8 @@ class UnitreeSportBridge(HardwareBridgeInterface):
             )
         if not connected and self._require_subscriber:
             raise HardwareBridgeError(
-                f"No subscriber on {self._topic}. The GO2 sport service does not "
+                f"No subscriber on {self._topic} after {self._discovery_timeout:.1f}s. "
+                "The GO2 sport service does not "
                 "appear to be running or reachable. Starting anyway would mean "
                 "publishing commands into the void while reporting healthy; set "
                 "require_subscriber:=false only if you understand that."

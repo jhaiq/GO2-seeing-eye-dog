@@ -33,6 +33,7 @@ import numpy as np
 import rclpy
 import tf2_ros
 from rclpy.duration import Duration
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from rclpy.time import Time
@@ -205,7 +206,9 @@ def main(args=None) -> None:
     node = LidarHazardNode()
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
+        # SIGINT from launch shuts the context down under the listener thread;
+        # that is a normal exit, not a crash.
         pass
     finally:
         node.destroy_node()
