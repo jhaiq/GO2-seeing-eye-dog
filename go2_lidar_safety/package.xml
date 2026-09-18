@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>go2_lidar_safety</name>
+  <version>1.0.0</version>
+  <description>LiDAR hazard source for the safety arbiter. Publishes CLEAR / SLOWDOWN / EMERGENCY_STOP from a point cloud so hazard context does not depend on a depth camera.</description>
+
+  <maintainer email="yusuf.a.guenena@gmail.com">Yusuf Guenena</maintainer>
+  <license>MIT</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>sensor_msgs_py</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>go2_msgs</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+
+  <test_depend>python3-pytest</test_depend>
+  <test_depend>go2_safety_arbiter</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

@@ -22,6 +22,7 @@ testpaths = [
   "go2_safety_arbiter/test",
   "go2_hardware_bridge/test",
   "go2_approach_controller/test",
+  "go2_lidar_safety/test",
   "go2_bringup/test",
   "evaluation/tests",
 ]
