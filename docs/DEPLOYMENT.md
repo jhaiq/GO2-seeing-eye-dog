@@ -119,21 +119,35 @@ stop forward motion, any `TRANSMIT_FAILED` or `BRIDGE_WATCHDOG_TIMEOUT`.
 stands.** Use the remote first. Hazard stops from the arbiter use StopMove
 (1003) and do not drop the robot.
 
-## Middleware: CycloneDDS only
+## Middleware: CycloneDDS
 
 Run the whole graph with `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp` (the robot
-speaks CycloneDDS anyway; the preflight fails otherwise). In closed-loop sim
-on the default FastDDS, 2 of 6 trials that got going had Nav2's controller
-stop receiving `map -> odom` from slam_toolbox while every other reader
-(the relay, the behaviour server, a fresh `tf2_echo`) kept receiving it; the
-controller then rejected every path as "Transform data too old" for the rest
-of the run. Across 5 CycloneDDS trials it never occurred. The cause inside
-FastDDS was not isolated; treat FastDDS as unsupported for this stack.
+speaks CycloneDDS; the preflight fails otherwise).
 
 For single-host sim on loopback, use
 `CYCLONEDDS_URI=file://$(ros2 pkg prefix go2_sim)/share/go2_sim/config/cyclonedds_localhost.xml`
 (loopback cannot multicast and the default participant limit is too small
 for this graph). Never use that file on the robot.
+
+## Open issue: Nav2 controller loses map -> odom
+
+In roughly 1 in 10 closed-loop sim trials, under FastDDS and CycloneDDS
+alike, Nav2's controller_server stops seeing new `map -> odom` transforms
+while slam_toolbox keeps publishing them and other readers keep receiving
+them. From then on every path is rejected ("Transform data too old when
+converting from map to odom") and navigation is dead. The robot fails safe:
+no candidates reach the arbiter, which commands zero. **The root cause was
+not isolated.** Ruled out: robot-clock correction (no resets or stamp jumps
+in bags of affected runs), slam_toolbox stopping (its transform stayed fresh
+on `/tf`), leftover processes from earlier trials, and FastDDS alone (it
+also happened once under CycloneDDS).
+
+Mitigation: `nav_tf_watchdog` (started with `planner:=nav2`) watches for the
+planner publishing `/plan` while the controller publishes nothing on
+`/received_global_plan` for 3 s, and resets and restarts the Nav2 lifecycle.
+The goal in progress aborts and must be re-sent. Its recovery count is on
+`/go2/nav_health`. Watch it during stage 4; a recovery on the robot is a
+finding to record, not noise.
 
 ## Known limits
 

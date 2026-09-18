@@ -26,6 +26,7 @@ import re
 import signal
 import subprocess
 import sys
+import threading
 import time
 from collections import Counter
 from pathlib import Path
@@ -38,8 +39,14 @@ BAG_TOPICS = ["/plan", "/tf", "/tf_static", "/go2/safety/status", "/go2/localiza
               "/go2/safety_alert", "/navigate_to_pose/_action/status", "/local_plan"]
 
 
+GDB_PREFIX = (
+    "gdb -q -batch -ex 'set pagination off' -ex 'handle SIGUSR1 stop print nopass' "
+    "-ex run -ex 'thread apply all bt 40' -ex continue --args"
+)
+
+
 def _launch(domain: int, planner: str, log_path: Path, bag: Path | None = None,
-            tf_monitor: Path | None = None) -> subprocess.Popen:
+            tf_monitor: Path | None = None, gdb_controller: bool = False) -> subprocess.Popen:
     env = dict(os.environ, ROS_DOMAIN_ID=str(domain), ROS_LOCALHOST_ONLY="1")
     world = subprocess.check_output(["ros2", "pkg", "prefix", "go2_sim"], text=True).strip()
     world += "/share/go2_sim/worlds/apartment.yaml"
@@ -47,7 +54,9 @@ def _launch(domain: int, planner: str, log_path: Path, bag: Path | None = None,
         f"ros2 launch go2_sim sim.launch.py world_file:={world} & "
         f"sleep 2; ros2 launch go2_bringup system.launch.py perception:=none planner:={planner} "
         "localization:=slam_mapping lidar_safety:=true hardware_adapter:=unitree_sport "
-        "cloud_in_topic:=/utlidar/cloud_deskewed & "
+        "cloud_in_topic:=/utlidar/cloud_deskewed "
+        + (f"controller_prefix:=\"{GDB_PREFIX}\" " if gdb_controller else "")
+        + "& "
     )
     if bag is not None:
         cmd += f"sleep 3; ros2 bag record -o {bag} {' '.join(BAG_TOPICS)} & "
@@ -97,6 +106,39 @@ def _stop(proc: subprocess.Popen, grace_s: float = 15.0) -> None:
         proc.wait(timeout=5)
     except subprocess.TimeoutExpired:
         pass
+
+
+def _controller_pid(domain: int):
+    """PID of this trial's controller_server (the gdb inferior when wrapped)."""
+    for pid in os.listdir("/proc"):
+        if not pid.isdigit():
+            continue
+        try:
+            comm = Path(f"/proc/{pid}/comm").read_text().strip()
+            env = Path(f"/proc/{pid}/environ").read_bytes().split(b"\0")
+        except OSError:
+            continue
+        if comm.startswith("controller_serv") and f"ROS_DOMAIN_ID={domain}".encode() in env:
+            return int(pid)
+    return None
+
+
+def _stall_sampler(log_path: Path, domain: int, stop, dumped: list) -> None:
+    """When the controller's map->odom stall persists, SIGUSR1 it once so gdb dumps stacks."""
+    first = None
+    while not stop.is_set():
+        try:
+            n = log_path.read_text(errors="ignore").count("Transform data too old")
+        except OSError:
+            n = 0
+        if n and first is None:
+            first = time.monotonic()
+        if first is not None and time.monotonic() - first > 3.0 and not dumped:
+            pid = _controller_pid(domain)
+            if pid:
+                os.kill(pid, signal.SIGUSR1)
+                dumped.append(pid)
+        time.sleep(1.0)
 
 
 def _run_goals(goals, goal_timeout: float, ready_timeout: float) -> dict:
@@ -200,6 +242,8 @@ def main(argv=None) -> int:
     ap.add_argument("--out", default="closed_loop_trials")
     ap.add_argument("--bag", action="store_true", help="record /plan, TF and safety topics per trial")
     ap.add_argument("--tf-monitor", action="store_true", help="run a long-lived tf2_echo odom map per trial")
+    ap.add_argument("--gdb-controller", action="store_true",
+                    help="run controller_server under gdb; dump all thread stacks on the map->odom stall")
     args = ap.parse_args(argv)
 
     out_dir = Path(args.out)
@@ -209,13 +253,19 @@ def main(argv=None) -> int:
         domain = args.domain_base + i
         log = out_dir / f"trial_{i}.log"
         proc = _launch(domain, args.planner, log, out_dir / f"bag_{i}" if args.bag else None,
-                       out_dir / f"tfmon_{i}.log" if args.tf_monitor else None)
+                       out_dir / f"tfmon_{i}.log" if args.tf_monitor else None,
+                       gdb_controller=args.gdb_controller)
+        sampler_stop, dumped = threading.Event(), []
+        if args.gdb_controller:
+            threading.Thread(target=_stall_sampler, args=(log, domain, sampler_stop, dumped),
+                             daemon=True).start()
         try:
             env_domain = os.environ.get("ROS_DOMAIN_ID")
             os.environ["ROS_DOMAIN_ID"] = str(domain)
             os.environ["ROS_LOCALHOST_ONLY"] = "1"
             result = _run_goals(DEFAULT_GOALS, args.goal_timeout, args.ready_timeout)
         finally:
+            sampler_stop.set()
             _stop(proc)
             if env_domain is None:
                 os.environ.pop("ROS_DOMAIN_ID", None)
@@ -225,6 +275,7 @@ def main(argv=None) -> int:
         result["trial"] = i
         result["stale_tf_errors"] = len(re.findall(r"Transform data too old", text))
         result["tracebacks"] = len(re.findall(r"Traceback", text))
+        result["gdb_dumped_pid"] = dumped[0] if dumped else None
         trials.append(result)
         ok = sum(g["status"] == "SUCCEEDED" for g in result["goals"])
         print(f"trial {i}: ready={result['ready']} succeeded {ok}/{len(result['goals'])} "

@@ -129,3 +129,16 @@ def test_require_map_frame_blocks_without_slam(graph):
     relay.set_parameters([Parameter("require_map_frame", value=True)])
     ok, reasons = relay.evaluate()
     assert not ok and any("map->odom" in r or "map" in r for r in reasons)
+
+
+def test_forwarded_clouds_never_outrun_the_newest_pose(graph):
+    """Guard against the Humble tf2_ros MessageFilter deadlock: a cloud must
+    be transformable on arrival, so its stamp trails the newest odom pose."""
+    relay, robot, probe, valid, odoms, buf = graph
+    clouds = []
+    probe.create_subscription(PointCloud2, "/go2/lidar/points", clouds.append, qos_profile_sensor_data)
+    assert _wait_for(lambda: len(clouds) >= 10)
+    newest_odom = max(o.header.stamp.sec + o.header.stamp.nanosec * 1e-9 for o in odoms)
+    for c in clouds:
+        stamp = c.header.stamp.sec + c.header.stamp.nanosec * 1e-9
+        assert stamp <= newest_odom - 0.02 + 1e-6

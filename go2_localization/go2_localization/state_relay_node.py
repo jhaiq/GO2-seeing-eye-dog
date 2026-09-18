@@ -91,6 +91,17 @@ class StateRelayNode(Node):
         self.declare_parameter("require_map_frame", False)
         self.declare_parameter("map_tf_max_age_s", 1.0)
         self.declare_parameter("validity_rate_hz", 10.0)
+        # Never forward a cloud stamped later than (newest odom pose - margin).
+        # Humble tf2_ros (0.25.23, current) has a lock-order-inversion deadlock
+        # between TransformListener::subscription_callback ->
+        # testTransformableRequests and MessageFilter -> waitForTransform ->
+        # addTransformableRequest, which is only reachable while a transform
+        # request is PENDING. It froze Nav2's controller TF buffer for good in
+        # about 3 in 10 closed-loop sim trials (gdb stacks of the frozen
+        # controller_server). A cloud whose pose is already buffered never
+        # creates a pending request in p2l, slam_toolbox or the costmaps.
+        # Cost: at most margin of stamp shift (7 mm at 0.35 m/s at 0.02 s).
+        self.declare_parameter("cloud_stamp_margin_s", 0.02)
 
         p = self.get_parameter
         self._odom_frame = str(p("odom_frame").value)
@@ -104,6 +115,8 @@ class StateRelayNode(Node):
         )
 
         self._odom_rx: Optional[float] = None
+        self._latest_odom_stamp_s: Optional[float] = None
+        self._clouds_clamped = 0
         self._cloud_rx: Optional[float] = None
         self._odom_count = 0
         self._cloud_count = 0
@@ -171,6 +184,7 @@ class StateRelayNode(Node):
             return
         self._odom_rx = self._steady()
         self._odom_count += 1
+        self._latest_odom_stamp_s = stamp.sec + stamp.nanosec * 1e-9
 
         out = Odometry()
         out.header.stamp = stamp
@@ -194,9 +208,14 @@ class StateRelayNode(Node):
         # Clouds never train the estimator: their stamp-to-receipt gap includes
         # sweep duration, which would bias the minimum.
         stamp = self._restamp(msg.header.stamp, learn=False)
-        if stamp is None:
+        if stamp is None or self._latest_odom_stamp_s is None:
             self._cloud_dropped_unready += 1
             return
+        limit = self._latest_odom_stamp_s - float(self.get_parameter("cloud_stamp_margin_s").value)
+        if stamp.sec + stamp.nanosec * 1e-9 > limit:
+            stamp = type(stamp)()
+            stamp.sec, stamp.nanosec = split_stamp(limit)
+            self._clouds_clamped += 1
         self._cloud_rx = self._steady()
         self._cloud_count += 1
         msg.header.stamp = stamp
@@ -273,6 +292,7 @@ class StateRelayNode(Node):
             "odom_msgs": self._odom_count,
             "cloud_msgs": self._cloud_count,
             "cloud_dropped_before_offset": self._cloud_dropped_unready,
+            "clouds_stamp_clamped": self._clouds_clamped,
         }
         self._status_pub.publish(String(data=json.dumps(status)))
         if not ok:

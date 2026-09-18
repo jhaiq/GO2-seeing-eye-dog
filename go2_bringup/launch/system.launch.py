@@ -198,23 +198,14 @@ def _nav2_group(log_level):
                 PythonLaunchDescriptionSource(
                     [
                         PathJoinSubstitution(
-                            [
-                                FindPackageShare("nav2_bringup"),
-                                "launch",
-                                "navigation_launch.py",
-                            ]
+                            [FindPackageShare("go2_navigation"), "launch", "navigation.launch.py"]
                         )
                     ]
                 ),
                 launch_arguments={
                     "use_sim_time": LaunchConfiguration("use_sim_time"),
-                    "params_file": PathJoinSubstitution(
-                        [
-                            FindPackageShare("go2_navigation"),
-                            "config",
-                            "nav2_params.yaml",
-                        ]
-                    ),
+                    "log_level": log_level,
+                    "controller_prefix": LaunchConfiguration("controller_prefix"),
                 }.items(),
             ),
             # Recovers Nav2 if its controller stops receiving map->odom (see
@@ -315,6 +306,11 @@ def generate_launch_description() -> LaunchDescription:
         ),
         DeclareLaunchArgument("cloud_in_topic", default_value="/utlidar/cloud_deskewed"),
         DeclareLaunchArgument("publish_lidar_extrinsic", default_value="false"),
+        DeclareLaunchArgument(
+            "controller_prefix",
+            default_value="",
+            description="Debug wrapper for Nav2 controller_server (e.g. gdb). Leave empty.",
+        ),
         DeclareLaunchArgument("dry_run_log_path", default_value=""),
         DeclareLaunchArgument("use_sim_time", default_value="false"),
         DeclareLaunchArgument("log_level", default_value="info"),
