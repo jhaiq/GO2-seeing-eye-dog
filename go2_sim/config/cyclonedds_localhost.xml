@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  CycloneDDS for single-host simulation on loopback (ROS_LOCALHOST_ONLY=1, which already selects lo;
+  naming lo here again is a hard error).
+  Loopback is not multicast-capable, so discovery falls back to unicast with
+  participant indices; the default MaxAutoParticipantIndex (9) is too small
+  for the full graph (~20 processes) and nodes silently failed to discover
+  each other. NOT for the robot: the payload NIC supports multicast.
+-->
+<CycloneDDS xmlns="https://cdds.io/config">
+  <Domain id="any">
+    <General>
+      <AllowMulticast>false</AllowMulticast>
+    </General>
+    <Discovery>
+      <ParticipantIndex>auto</ParticipantIndex>
+      <MaxAutoParticipantIndex>120</MaxAutoParticipantIndex>
+      <Peers><Peer address="localhost"/></Peers>
+    </Discovery>
+  </Domain>
+</CycloneDDS>
