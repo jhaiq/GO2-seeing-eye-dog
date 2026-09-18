@@ -90,9 +90,14 @@ class HazardParams:
     # Behind the tail: backward motion is forbidden inside this distance.
     rear_stop_distance_m: float = 0.30
 
-    # Rotation sweep: the body box's corners trace a circle of radius
-    # hypot(max(|body_x_min|, body_x_max), body_half_width). An obstacle inside
+    # Rotation sweep: the physical footprint's corners (the same 0.76 x 0.38 m
+    # box Nav2 plans with) trace a circle of radius
+    # hypot(footprint_half_length, footprint_half_width). An obstacle inside
     # that circle plus this margin forbids rotation (a turn would hit it).
+    # Deliberately NOT the padded self-return box: that gave a 0.55 m radius,
+    # which forbade every heading correction in a 1.0 m doorway (frames at
+    # 0.50 m) and stranded the robot there in closed-loop sim.
+    footprint_half_length: float = 0.38
     sweep_margin_m: float = 0.05
 
     # All-around guard: an obstacle this close to any side of the body box
@@ -115,7 +120,7 @@ class HazardParams:
         for name in ("stop_distance_m", "slowdown_distance_m", "lookahead_m",
                      "corridor_margin", "footprint_half_width", "body_half_width",
                      "surround_radius_m", "floor_tolerance_m",
-                     "rear_stop_distance_m", "sweep_margin_m"):
+                     "rear_stop_distance_m", "sweep_margin_m", "footprint_half_length"):
             value = getattr(self, name)
             if not math.isfinite(value) or value < 0.0:
                 raise ValueError(f"{name} must be finite and >= 0, got {value}")
@@ -136,8 +141,7 @@ class HazardParams:
 
     @property
     def sweep_radius(self) -> float:
-        reach = max(abs(self.body_x_min), abs(self.body_x_max))
-        return math.hypot(reach, self.body_half_width) + self.sweep_margin_m
+        return math.hypot(self.footprint_half_length, self.footprint_half_width) + self.sweep_margin_m
 
 
 @dataclass(frozen=True)

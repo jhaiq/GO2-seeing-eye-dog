@@ -30,6 +30,11 @@ lidar_hazard_node:
     body_half_width: 0.22
 
     footprint_half_width: 0.20
+    # Physical footprint half length; with footprint_half_width it sets the
+    # rotation-sweep radius (0.43 m + sweep_margin_m) for RESTRICT:W.
+    footprint_half_length: 0.38
+    sweep_margin_m: 0.05
+    rear_stop_distance_m: 0.30
     corridor_margin: 0.10
     lookahead_m: 3.0
 

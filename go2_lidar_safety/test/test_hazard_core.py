@@ -96,8 +96,9 @@ def test_single_noise_point_does_not_stop():
 
 def test_min_obstacle_points_is_respected_exactly():
     pts = wall_ahead(0.1, n=P.min_obstacle_points)
-    # 0.1 m ahead of the nose is also inside the rotation sweep: F and W.
-    assert evaluate(pts, P).decision == "RESTRICT:FW"
+    # 0.1 m ahead of the nose (0.50 m from base_link) is outside the 0.48 m
+    # rotation sweep of the physical footprint: forward only.
+    assert evaluate(pts, P).decision == "RESTRICT:F"
     pts = wall_ahead(0.1, n=P.min_obstacle_points - 1)
     assert evaluate(pts, P).decision == CLEAR
 
@@ -158,7 +159,11 @@ def test_boxed_in_is_an_emergency_stop_and_outranks_drop():
     params = HazardParams(drop_check_enabled=True)
     behind = wall_ahead(0.1)
     behind[:, 0] = P.body_x_min - 0.1
-    assert evaluate(np.vstack([wall_ahead(0.1), behind]), params).decision == EMERGENCY_STOP
+    side = np.column_stack([np.linspace(-0.2, 0.2, 5), np.full(5, 0.30), np.full(5, 0.1)])
+    boxed = np.vstack([wall_ahead(0.1), behind, side])
+    assert evaluate(boxed, params).decision == EMERGENCY_STOP
+    # Front and rear blocked but free to turn: pivot, not a stop.
+    assert evaluate(np.vstack([wall_ahead(0.1), behind]), P).decision == "RESTRICT:FB"
 
 
 def test_obstacle_close_behind_forbids_reverse():
@@ -167,13 +172,23 @@ def test_obstacle_close_behind_forbids_reverse():
     assert evaluate(pts, P).decision == "RESTRICT:B"
 
 
-def test_doorway_allows_straight_travel_but_not_rotation():
-    # 1.0 m doorway: frames 0.5 m either side of the centreline, alongside.
+def _doorway(width):
     xs = np.linspace(-0.2, 0.2, 8)
-    left = np.column_stack([xs, np.full(8, 0.5), np.full(8, 0.2)])
-    right = np.column_stack([xs, np.full(8, -0.5), np.full(8, 0.2)])
-    result = evaluate(np.vstack([left, right]), P)
-    assert result.decision == "RESTRICT:W"
+    half = width / 2
+    left = np.column_stack([xs, np.full(8, half), np.full(8, 0.2)])
+    right = np.column_stack([xs, np.full(8, -half), np.full(8, 0.2)])
+    return np.vstack([left, right])
+
+
+def test_centred_in_a_1m_doorway_heading_corrections_are_allowed():
+    # Footprint corners reach 0.43 m; frames at 0.50 m. Regression: a sweep
+    # built from the padded self-return box (0.55 m) stranded the robot here.
+    assert "W" not in evaluate(_doorway(1.0), P).decision
+
+
+def test_narrow_doorway_forbids_rotation_but_not_straight_travel():
+    decision = evaluate(_doorway(0.9), P).decision
+    assert decision == "RESTRICT:W"
 
 
 def test_restriction_strings_and_severity_order():
