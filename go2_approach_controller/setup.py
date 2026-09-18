@@ -20,6 +20,7 @@ setup(
         "console_scripts": [
             "approach_controller_node = go2_approach_controller.approach_controller_node:main",
             "candidate_stamper_node = go2_approach_controller.candidate_stamper_node:main",
+            "nav_to_pose_adapter_node = go2_approach_controller.nav_to_pose_adapter_node:main",
         ],
     },
 )

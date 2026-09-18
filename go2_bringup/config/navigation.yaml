@@ -77,3 +77,24 @@ candidate_stamper_node:
     #          producer (Nav2 on Humble). Must equal the arbiter's
     #          expected_frame_id.
     frame_id: base_link
+
+
+nav_to_pose_adapter_node:
+  ros__parameters:
+    # meaning: frame in which feedback distance is computed when the controller
+    #          status carries no range. Must match the controller's robot_frame.
+    robot_frame: base_link
+    # unit: s | meaning: no controller status for this long aborts the goal
+    #       (controller dead). Also the wait for a goal_pose subscriber.
+    status_timeout_s: 1.0
+    # unit: s | meaning: statuses received this soon after a goal is sent are
+    #       ignored. The status has no goal id, so a latched REACHED or IDLE
+    #       from the previous goal must not decide the new one.
+    status_settle_s: 0.2
+    # unit: s | meaning: NO_TRANSFORM persisting this long aborts the goal.
+    no_transform_timeout_s: 1.0
+    # unit: s | meaning: controller must report ACTIVE or REACHED within this.
+    goal_ack_timeout_s: 1.0
+    # unit: s | meaning: wait for IDLE after cancel_goal before reporting
+    #       canceled anyway (logged as an error: robot may still be commanded).
+    cancel_confirm_timeout_s: 1.0
