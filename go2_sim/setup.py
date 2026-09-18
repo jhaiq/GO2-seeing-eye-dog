@@ -22,6 +22,7 @@ setup(
     license="MIT",
     entry_points={
         "console_scripts": [
+            "closed_loop_trials = go2_sim.closed_loop_trials:main",
             "go2_kinematic_sim_node = go2_sim.sim_node:main",
         ],
     },

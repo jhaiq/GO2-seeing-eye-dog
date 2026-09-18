@@ -93,7 +93,12 @@ class LidarHazardNode(Node):
             raise ValueError("max_cloud_age_s must be > 0")
 
         self._tf_buffer = tf2_ros.Buffer()
-        self._tf_listener = tf2_ros.TransformListener(self._tf_buffer, self)
+        # Own node + thread: this node spins single-threaded, so a blocking
+        # lookup with a timeout could never receive the transform it waits for
+        # (a cloud stamped 1 ms after the latest odom TF failed as "future
+        # extrapolation" in closed-loop sim). node=None: a node may only be in
+        # one executor.
+        self._tf_listener = tf2_ros.TransformListener(self._tf_buffer, None, spin_thread=True)
 
         self._pending: Optional[PointCloud2] = None
         self._pending_steady: float = 0.0
