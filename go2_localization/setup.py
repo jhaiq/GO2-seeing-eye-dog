@@ -24,6 +24,7 @@ setup(
         "console_scripts": [
             "go2_state_relay_node = go2_localization.state_relay_node:main",
             "calibrate_lidar = go2_localization.calibrate_lidar:main",
+            "nav_tf_watchdog = go2_localization.nav_tf_watchdog:main",
         ],
     },
 )

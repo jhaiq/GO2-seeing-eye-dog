@@ -217,6 +217,15 @@ def _nav2_group(log_level):
                     ),
                 }.items(),
             ),
+            # Recovers Nav2 if its controller stops receiving map->odom (see
+            # go2_localization/nav_tf_watchdog.py for the observed failure).
+            Node(
+                package="go2_localization",
+                executable="nav_tf_watchdog",
+                name="nav_tf_watchdog",
+                output="screen",
+                arguments=["--ros-args", "--log-level", log_level],
+            ),
             # The stamper is the ONLY sanctioned producer on the unstamped
             # inlet, and the inlet is off unless this group is active.
             SetParameter(name="accept_unstamped_candidate", value=True),
