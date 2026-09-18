@@ -1,0 +1,24 @@
+# Two-room apartment for the kinematic GO2 simulator.
+# Main room x 0..8, y 0..6. Second room x 8..11, reached through a 1.0 m
+# doorway in the dividing wall at x = 8 (y 2.5..3.5). Frame: odom, metres.
+# Walls are 1.2 m tall so both the lidar and a 2D laser slice see them.
+
+start_pose: {x: 1.0, y: 1.0, yaw: 0.0}
+
+obstacles:
+  - {label: wall_south, x: 5.5, y: 0.0, size_x: 11.0, size_y: 0.1, height: 1.2}
+  - {label: wall_north, x: 5.5, y: 6.0, size_x: 11.0, size_y: 0.1, height: 1.2}
+  - {label: wall_west, x: 0.0, y: 3.0, size_x: 0.1, size_y: 6.0, height: 1.2}
+  - {label: wall_east, x: 11.0, y: 3.0, size_x: 0.1, size_y: 6.0, height: 1.2}
+  - {label: divider_south, x: 8.0, y: 1.25, size_x: 0.1, size_y: 2.5, height: 1.2}
+  - {label: divider_north, x: 8.0, y: 4.75, size_x: 0.1, size_y: 2.5, height: 1.2}
+  - {label: planter, x: 3.0, y: 1.6, size_x: 0.4, size_y: 0.4, height: 0.6}
+
+objects:
+  - {label: couch, x: 2.0, y: 5.3, size_x: 2.0, size_y: 0.9, size_z: 0.8}
+  - {label: table, x: 4.5, y: 3.2, size_x: 1.2, size_y: 0.8, size_z: 0.75}
+  - {label: chair, x: 4.5, y: 2.3, size_x: 0.5, size_y: 0.5, size_z: 0.9}
+  - {label: refrigerator, x: 10.5, y: 5.4, size_x: 0.7, size_y: 0.7, size_z: 1.8}
+  # Door leaf standing open against the divider, clear of the doorway.
+  - {label: door, x: 8.5, y: 3.6, size_x: 0.9, size_y: 0.05, size_z: 2.0}
+  - {label: person, x: 6.5, y: 1.2, size_x: 0.4, size_y: 0.3, size_z: 1.7}

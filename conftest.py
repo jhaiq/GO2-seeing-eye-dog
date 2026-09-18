@@ -35,6 +35,7 @@ for _pkg in [
     "go2_safety_arbiter",
     "go2_hardware_bridge",
     "go2_approach_controller",
+    "go2_sim",
 ]:
     _src = _root / _pkg
     if _src.is_dir() and str(_src) not in sys.path:

@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>go2_sim</name>
+  <version>0.1.0</version>
+  <description>
+    Kinematic GO2 simulator. Emulates the robot's DDS surface (Sport API request/response,
+    /utlidar/robot_odom, /utlidar/cloud, /utlidar/cloud_deskewed) so the real motion chain can be
+    tested closed loop without hardware. Kinematics only: no legs, no dynamics.
+  </description>
+  <maintainer email="yusuf.a.guenena@gmail.com">Yusuf Guenena</maintainer>
+  <license>MIT</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>visualization_msgs</exec_depend>
+  <!-- unitree_api (unitree_ros2) is required at runtime but not declared, matching
+       go2_hardware_bridge: it is not in rosdep, and tests skip without it. -->
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
