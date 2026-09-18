@@ -1,0 +1,22 @@
+# go2_state_relay_node. hardware_validated: false.
+go2_state_relay_node:
+  ros__parameters:
+    odom_in_topic: /utlidar/robot_odom
+    # Deskewed cloud is (ASSUMPTION, verify in lab with
+    # `ros2 topic echo --once /utlidar/cloud_deskewed --field header`) already
+    # in the odom frame, so no extrinsic is needed. For the raw sensor-frame
+    # cloud set cloud_in_topic: /utlidar/cloud and publish_lidar_extrinsic: true
+    # with values from `ros2 run go2_localization calibrate_lidar`.
+    cloud_in_topic: /utlidar/cloud_deskewed
+    cloud_out_topic: /go2/lidar/points
+    odom_out_topic: /odom
+    restamp_mode: offset
+    publish_lidar_extrinsic: false
+    lidar_frame: utlidar_lidar
+    lidar_xyz: [0.28945, 0.0, -0.046825]
+    lidar_rpy: [0.0, 2.8782, 0.0]
+    odom_max_age_s: 0.2
+    cloud_max_age_s: 0.5
+    require_cloud: true
+    require_map_frame: true
+    map_tf_max_age_s: 1.0

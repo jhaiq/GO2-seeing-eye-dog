@@ -21,6 +21,13 @@ Arguments
                 Requires a map, localization, odometry, TF and a laser scan —
                 see docs/target_runtime_architecture.md before using it.
 
+``localization``    none | slam_mapping | slam_localization   (default: none)
+    Starts go2_localization (odom/LiDAR relay with robot-clock correction,
+    pointcloud_to_laserscan, slam_toolbox). Anything other than ``none`` also
+    makes the arbiter REQUIRE /go2/localization_valid, so losing odometry,
+    LiDAR or the map->odom transform stops the robot. ``map_file`` selects the
+    serialized pose graph for slam_localization.
+
 ``hardware_adapter`` dry_run | unitree_sport   (default: dry_run)
     The default is dry_run. Selecting a physical adapter is an explicit,
     deliberate act.
@@ -196,6 +203,25 @@ def _nav2_group(log_level):
     )
 
 
+def _localization_group():
+    localization = LaunchConfiguration("localization")
+    return IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            [PathJoinSubstitution([FindPackageShare("go2_localization"), "launch", "localization.launch.py"])]
+        ),
+        launch_arguments={
+            "use_sim_time": LaunchConfiguration("use_sim_time"),
+            "slam_mode": PythonExpression(
+                ["'localization' if '", localization, "' == 'slam_localization' else 'mapping'"]
+            ),
+            "map_file": LaunchConfiguration("map_file"),
+            "cloud_in_topic": LaunchConfiguration("cloud_in_topic"),
+            "publish_lidar_extrinsic": LaunchConfiguration("publish_lidar_extrinsic"),
+        }.items(),
+        condition=IfCondition(PythonExpression(["'", localization, "' != 'none'"])),
+    )
+
+
 def generate_launch_description() -> LaunchDescription:
     log_level = LaunchConfiguration("log_level")
 
@@ -218,6 +244,14 @@ def generate_launch_description() -> LaunchDescription:
             default_value="dry_run",
             description="dry_run or unitree_sport.",
         ),
+        DeclareLaunchArgument(
+            "localization",
+            default_value="none",
+            description="none | slam_mapping | slam_localization.",
+        ),
+        DeclareLaunchArgument("map_file", default_value=""),
+        DeclareLaunchArgument("cloud_in_topic", default_value="/utlidar/cloud_deskewed"),
+        DeclareLaunchArgument("publish_lidar_extrinsic", default_value="false"),
         DeclareLaunchArgument("dry_run_log_path", default_value=""),
         DeclareLaunchArgument("use_sim_time", default_value="false"),
         DeclareLaunchArgument("log_level", default_value="info"),
@@ -229,6 +263,9 @@ def generate_launch_description() -> LaunchDescription:
             "hardware_adapter": LaunchConfiguration("hardware_adapter"),
             "dry_run_log_path": LaunchConfiguration("dry_run_log_path"),
             "log_level": log_level,
+            "require_localization": PythonExpression(
+                ["'false' if '", LaunchConfiguration("localization"), "' == 'none' else 'true'"]
+            ),
         }.items(),
     )
 
@@ -239,6 +276,7 @@ def generate_launch_description() -> LaunchDescription:
             _grounding_node(log_level),
             _staged_controller(log_level),
             _nav2_group(log_level),
+            _localization_group(),
             motion_authority,
         ]
     )

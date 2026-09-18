@@ -1,0 +1,20 @@
+# L1 cloud (relayed, local-clock stamps) -> 2D /scan in base_link for
+# slam_toolbox and the Nav2 obstacle layers. hardware_validated: false.
+pointcloud_to_laserscan:
+  ros__parameters:
+    target_frame: base_link
+    transform_tolerance: 0.1
+    # base_link stands ~0.32 m above the floor. Keep the band above the floor
+    # (-0.22) so ground returns never become obstacles, and below 0.6 m.
+    min_height: -0.22
+    max_height: 0.60
+    angle_min: -3.14159
+    angle_max: 3.14159
+    angle_increment: 0.01745
+    scan_time: 0.0667
+    # The body footprint's corner is 0.43 m from base_link; anything closer is
+    # a self return (legs, head) and would mark the robot's own cell lethal.
+    range_min: 0.45
+    range_max: 10.0
+    use_inf: true
+    inf_epsilon: 1.0

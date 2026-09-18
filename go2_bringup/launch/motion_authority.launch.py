@@ -36,6 +36,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
 
 #: The single topic the hardware bridge listens on. Changing this string
@@ -60,6 +61,7 @@ def get_motion_authority_nodes(
     hardware_adapter="dry_run",
     dry_run_log_path="",
     log_level="info",
+    require_localization="false",
 ):
     """
     Return the arbiter and bridge node actions.
@@ -76,7 +78,18 @@ def get_motion_authority_nodes(
         name="safety_arbiter_node",
         output="screen",
         emulate_tty=True,
-        parameters=[safety_config_path()],
+        parameters=[
+            safety_config_path(),
+            # Tightening only: localization can be made mandatory from launch,
+            # the ceilings and watchdogs cannot be loosened here.
+            {
+                "require_localization": (
+                    str(require_localization).lower() == "true"
+                    if isinstance(require_localization, (str, bool))
+                    else ParameterValue(require_localization, value_type=bool)
+                )
+            },
+        ],
         arguments=common_args,
         remappings=[
             # Inputs
@@ -123,6 +136,7 @@ def generate_launch_description() -> LaunchDescription:
     hardware_adapter = LaunchConfiguration("hardware_adapter")
     dry_run_log_path = LaunchConfiguration("dry_run_log_path")
     log_level = LaunchConfiguration("log_level")
+    require_localization = LaunchConfiguration("require_localization")
 
     return LaunchDescription(
         [
@@ -144,6 +158,13 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument(
                 "log_level", default_value="info", description="ROS log level."
             ),
+            DeclareLaunchArgument(
+                "require_localization",
+                default_value="false",
+                description="true makes /go2/localization_valid mandatory for motion.",
+            ),
         ]
-        + get_motion_authority_nodes(hardware_adapter, dry_run_log_path, log_level)
+        + get_motion_authority_nodes(
+            hardware_adapter, dry_run_log_path, log_level, require_localization
+        )
     )
