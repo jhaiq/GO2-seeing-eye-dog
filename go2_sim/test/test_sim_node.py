@@ -191,3 +191,39 @@ class TestRealUnitreeAdapter:
         x = sim.state.x
         graph.spin_for(0.5, each=lambda: adapter.send_velocity(0.3, 0.0, 0.0), step=0.05)
         assert sim.state.x == pytest.approx(x, abs=1e-3)
+
+    def test_requests_use_the_hardware_verified_header(self, graph):
+        """Unique identity.id per request and noreply=false (field notes s4), so
+        every request gets a matchable /api/sport/response."""
+        from unitree_api.msg import Request, Response
+
+        _make_sim(graph)
+        adapter = self._adapter(graph)
+        probe = graph.make_node("header_probe")
+        requests, responses = [], []
+        probe.create_subscription(Request, "/api/sport/request", requests.append, 50)
+        probe.create_subscription(Response, "/api/sport/response", responses.append, 50)
+        graph.spin_for(0.3)
+        import time as _time
+
+        last = [0.0]
+
+        def send_at_20hz():
+            # spin_for calls `each` on every spin_once, which returns early when
+            # work is pending; throttle to a bridge-like 20 Hz.
+            now = _time.monotonic()
+            if now - last[0] >= 0.05:
+                last[0] = now
+                adapter.send_velocity(0.2, 0.0, 0.0)
+
+        graph.spin_for(0.5, each=send_at_20hz, step=0.01)
+        adapter.send_zero()
+        graph.spin_for(0.5)
+        ids = [r.header.identity.id for r in requests]
+        assert len(ids) >= 5
+        assert len(set(ids)) == len(ids), "request ids must be unique"
+        assert all(r.header.policy.noreply is False for r in requests)
+        answered = {r.header.identity.id for r in responses} & set(ids)
+        # At a bridge-like rate every request is answered and matchable by id.
+        assert len(answered) == len(ids)
+        assert ids[-1] in answered

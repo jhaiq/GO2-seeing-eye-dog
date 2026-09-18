@@ -248,10 +248,16 @@ class UnitreeSportBridge(HardwareBridgeInterface):
 
         msg = self._Request()
         msg.header.identity.api_id = api_id
-        msg.header.identity.id = 0
+        # Field notes (docs/go2_field_notes.md s4): the request format verified
+        # on the robot uses a unique identity.id per request and noreply=false,
+        # under which the sport service answers on /api/sport/response with the
+        # matching id. id=0 on every request made replies unmatchable, and
+        # noreply=true was never exercised on hardware.
+        self._request_seq = (getattr(self, "_request_seq", 0) + 1) % (2**63)
+        msg.header.identity.id = int(time.time_ns() // 1000) * 1000 + self._request_seq % 1000
         msg.header.lease.id = 0
         msg.header.policy.priority = 0
-        msg.header.policy.noreply = True
+        msg.header.policy.noreply = False
         msg.parameter = json.dumps(params) if params is not None else ""
         msg.binary = []
         try:
