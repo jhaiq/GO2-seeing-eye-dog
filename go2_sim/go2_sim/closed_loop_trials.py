@@ -57,15 +57,41 @@ def _launch(domain: int, planner: str, log_path: Path, bag: Path | None = None) 
     )
 
 
-def _stop(proc: subprocess.Popen) -> None:
+def _group_alive(pgid: int) -> bool:
     try:
-        os.killpg(proc.pid, signal.SIGINT)
-        proc.wait(timeout=15)
-    except Exception:  # noqa: BLE001
+        os.killpg(pgid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+
+
+def _stop(proc: subprocess.Popen, grace_s: float = 15.0) -> None:
+    """Stop EVERY process of the trial, not just the launch wrapper.
+
+    Waiting on the wrapper alone left Nav2 servers alive after SIGINT; they
+    kept answering lifecycle and TF traffic on the same domain and poisoned
+    later trials that reused it (observed: planner_server survivors from
+    every trial of a batch).
+    """
+    pgid = proc.pid
+    try:
+        os.killpg(pgid, signal.SIGINT)
+    except ProcessLookupError:
+        return
+    deadline = time.monotonic() + grace_s
+    while time.monotonic() < deadline and _group_alive(pgid):
+        time.sleep(0.2)
+    if _group_alive(pgid):
         try:
-            os.killpg(proc.pid, signal.SIGKILL)
-        except Exception:  # noqa: BLE001
+            os.killpg(pgid, signal.SIGKILL)
+        except ProcessLookupError:
             pass
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        pass
 
 
 def _run_goals(goals, goal_timeout: float, ready_timeout: float) -> dict:
