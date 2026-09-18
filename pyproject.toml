@@ -24,6 +24,7 @@ testpaths = [
   "go2_approach_controller/test",
   "go2_localization/test",
   "go2_lidar_safety/test",
+  "go2_sim/test",
   "go2_bringup/test",
   "evaluation/tests",
 ]
