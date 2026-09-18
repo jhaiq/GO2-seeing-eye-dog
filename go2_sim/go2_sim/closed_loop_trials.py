@@ -54,7 +54,7 @@ def _launch(domain: int, planner: str, log_path: Path, bag: Path | None = None,
     if tf_monitor is not None:
         # An independent, long-lived C++ tf2 listener (not a Nav2 server):
         # if the controller's map->odom freezes, does this one freeze too?
-        cmd += f"sleep 5; ros2 run tf2_ros tf2_echo odom map 2 > {tf_monitor} 2>&1 & "
+        cmd += f"sleep 5; ros2 run tf2_ros tf2_echo odom map -r 2 > {tf_monitor} 2>&1 & "
     cmd += "wait"
     return subprocess.Popen(
         ["bash", "-c", cmd], env=env, stdout=open(log_path, "w"), stderr=subprocess.STDOUT,

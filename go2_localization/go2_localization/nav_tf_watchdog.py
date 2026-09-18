@@ -75,6 +75,7 @@ def main(args=None) -> None:
     import rclpy
     from nav2_msgs.srv import ManageLifecycleNodes
     from nav_msgs.msg import Path
+    from rclpy.executors import ExternalShutdownException
     from rclpy.node import Node
     from std_msgs.msg import String
 
@@ -147,7 +148,7 @@ def main(args=None) -> None:
     node = NavTfWatchdog()
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
         node.destroy_node()
