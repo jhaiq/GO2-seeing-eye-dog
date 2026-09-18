@@ -60,6 +60,15 @@ approach_controller_node:
     #       zero, so the robot arrives slowly rather than braking hard.
     slowdown_radius_m: 1.5
 
+    # unit: m | meaning: arrival band past goal_tolerance_m. Without it the
+    #       quadratic slowdown approaches the boundary asymptotically and never
+    #       reports REACHED (closed-loop sim: ~4 cm short after 30 s).
+    arrival_epsilon_m: 0.05
+
+    # unit: m/s | meaning: minimum translation speed while approaching.
+    # hardware_validated: false (GO2 measured tracking 0.15 m/s).
+    min_linear_speed: 0.08
+
     # unit: s | meaning: age beyond which an unachieved goal is abandoned.
     #       Prevents the controller pursuing a target from a request the user
     #       has long since given up on.

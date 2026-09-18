@@ -75,6 +75,8 @@ class ApproachControllerNode(Node):
         self.declare_parameter("goal_tolerance_m", 0.8)
         self.declare_parameter("yaw_tolerance_rad", 0.25)
         self.declare_parameter("slowdown_radius_m", 1.5)
+        self.declare_parameter("arrival_epsilon_m", 0.05)
+        self.declare_parameter("min_linear_speed", 0.08)
         self.declare_parameter("goal_lifetime_sec", 30.0)
         self.declare_parameter("tf_timeout_sec", 0.1)
         # Oldest transform this loop will act on. Looking up at "latest
@@ -102,6 +104,8 @@ class ApproachControllerNode(Node):
             goal_tolerance_m=float(self.get_parameter("goal_tolerance_m").value),
             yaw_tolerance_rad=float(self.get_parameter("yaw_tolerance_rad").value),
             slowdown_radius_m=float(self.get_parameter("slowdown_radius_m").value),
+            arrival_epsilon_m=float(self.get_parameter("arrival_epsilon_m").value),
+            min_linear_speed=float(self.get_parameter("min_linear_speed").value),
         )
 
         self._goal: Optional[PoseStamped] = None

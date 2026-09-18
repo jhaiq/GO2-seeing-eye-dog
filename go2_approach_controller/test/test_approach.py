@@ -303,3 +303,29 @@ class TestControllerNode:
 
         assert candidates
         assert all(c.twist.linear.x == 0.0 for c in candidates)
+
+
+class TestArrival:
+    """Regression: the quadratic slowdown never crossed goal_tolerance_m, so a
+    goal was never REACHED (closed-loop sim stopped ~4 cm short for 30 s)."""
+
+    def test_simulated_approach_reaches_within_time(self):
+        gains = ApproachGains()
+        x, dt, t = 0.0, 0.05, 0.0
+        goal = 3.0
+        status = None
+        while t < 30.0:
+            cmd = compute_approach(goal - x, 0.0, gains)
+            status = cmd.status
+            if status == ApproachStatus.REACHED:
+                break
+            x += cmd.vx * dt
+            t += dt
+        assert status == ApproachStatus.REACHED
+        assert t < 15.0
+        assert goal - x == pytest.approx(gains.goal_tolerance_m, abs=gains.arrival_epsilon_m + 0.01)
+
+    def test_min_speed_never_pushes_inside_the_arrival_band(self):
+        gains = ApproachGains()
+        cmd = compute_approach(gains.goal_tolerance_m + gains.arrival_epsilon_m / 2, 0.0, gains)
+        assert cmd.status == ApproachStatus.REACHED and cmd.vx == 0.0

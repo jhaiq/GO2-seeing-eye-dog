@@ -37,6 +37,7 @@ go2-semantic-nav wraps it in `deploy.launch.py`.
 | Robot clock skew corrected | VERIFIED OFFLINE | real 2026-09-01 bag: 27,605,481 s skew; relay tests; sim learns 27605481.0001 s |
 | Nav2 configures and activates on Humble | VERIFIED IN SIM | lifecycle "Managed nodes are active"; `test_nav2_params.py` checks every plugin |
 | Goal -> Nav2 -> arbiter -> real Unitree adapter -> robot | VERIFIED IN KINEMATIC SIM | 12 fresh trials x 5 goals (both rooms, 1 m doorway): 60/60 succeeded, 0 collisions, arrival error median 0.19 m, p90 0.28 m (`closed_loop_trials`, CycloneDDS, 2026-09-18) |
+| Straight-line option (`planner:=staged_nav`, NavigateToPose adapter over the approach controller) | VERIFIED IN KINEMATIC SIM, obstacle-free routes only | open room, 2 trials x 4 straight-line goals: 8/8, median arrival error 0.05 m, 0 collisions. In the cluttered apartment it stops in front of furniture on the straight line and holds (by design: no planning, no avoidance) |
 | LiDAR hazard source replaces the camera | VERIFIED IN SIM | 42 tests incl. real arbiter; no RealSense needed |
 | Anything on the physical robot | HW-UNVERIFIED | no session yet |
 | `/utlidar/cloud_deskewed` is in `odom` | ASSUMPTION | preflight checks it; fallback is raw cloud + `calibrate_lidar` |

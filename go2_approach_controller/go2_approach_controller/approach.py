@@ -48,6 +48,15 @@ class ApproachGains:
     yaw_tolerance_rad: float = 0.25
     #: Begin derating linear speed inside this range.
     slowdown_radius_m: float = 1.5
+    #: Arrival band beyond goal_tolerance_m. The derated speed is quadratic in
+    #: the remaining distance, so without a band the robot creeps toward the
+    #: tolerance boundary without ever crossing it: in closed-loop sim it
+    #: stopped ~4 cm short and every goal ended GOAL_STALE, never REACHED.
+    arrival_epsilon_m: float = 0.05
+    #: Floor on translation speed while approaching (m/s), so the last
+    #: centimetres do not take tens of seconds. Below the 0.15 m/s measured on
+    #: the GO2 (docs/go2_field_notes.md); hardware_validated: false.
+    min_linear_speed: float = 0.08
 
     def __post_init__(self) -> None:
         for name in ("k_linear", "k_angular", "turn_in_place_rad",
@@ -57,6 +66,10 @@ class ApproachGains:
                 raise ValueError(f"{name} must be finite and > 0, got {value}")
         if self.slowdown_radius_m <= self.goal_tolerance_m:
             raise ValueError("slowdown_radius_m must exceed goal_tolerance_m")
+        for name in ("arrival_epsilon_m", "min_linear_speed"):
+            value = getattr(self, name)
+            if not math.isfinite(value) or value < 0.0:
+                raise ValueError(f"{name} must be finite and >= 0, got {value}")
 
 
 @dataclass(frozen=True)
@@ -97,7 +110,7 @@ def compute_approach(
     range_m = math.hypot(goal_x, goal_y)
     heading = normalize_angle(math.atan2(goal_y, goal_x))
 
-    if range_m <= gains.goal_tolerance_m:
+    if range_m <= gains.goal_tolerance_m + gains.arrival_epsilon_m:
         # Position reached. Square up to the caller so the robot ends facing
         # the person, which matters for a handover.
         if abs(heading) > gains.yaw_tolerance_rad and range_m > 1e-3:
@@ -119,6 +132,6 @@ def compute_approach(
     # Derate translation as heading error grows, so the path is an arc that
     # tightens rather than a wide sweep.
     vx *= math.cos(heading)
-    vx = max(0.0, vx)
+    vx = max(gains.min_linear_speed * max(0.0, math.cos(heading)), vx)
 
     return ApproachCommand(vx, 0.0, wz, ApproachStatus.ACTIVE, range_m, heading)

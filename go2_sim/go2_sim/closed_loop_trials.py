@@ -46,10 +46,12 @@ GDB_PREFIX = (
 
 
 def _launch(domain: int, planner: str, log_path: Path, bag: Path | None = None,
-            tf_monitor: Path | None = None, gdb_controller: bool = False) -> subprocess.Popen:
+            tf_monitor: Path | None = None, gdb_controller: bool = False,
+            world: str | None = None) -> subprocess.Popen:
     env = dict(os.environ, ROS_DOMAIN_ID=str(domain), ROS_LOCALHOST_ONLY="1")
-    world = subprocess.check_output(["ros2", "pkg", "prefix", "go2_sim"], text=True).strip()
-    world += "/share/go2_sim/worlds/apartment.yaml"
+    if world is None:
+        world = subprocess.check_output(["ros2", "pkg", "prefix", "go2_sim"], text=True).strip()
+        world += "/share/go2_sim/worlds/apartment.yaml"
     cmd = (
         f"ros2 launch go2_sim sim.launch.py world_file:={world} & "
         f"sleep 2; ros2 launch go2_bringup system.launch.py perception:=none planner:={planner} "
@@ -242,6 +244,9 @@ def main(argv=None) -> int:
     ap.add_argument("--out", default="closed_loop_trials")
     ap.add_argument("--bag", action="store_true", help="record /plan, TF and safety topics per trial")
     ap.add_argument("--tf-monitor", action="store_true", help="run a long-lived tf2_echo odom map per trial")
+    ap.add_argument("--world", default=None, help="world YAML (default: apartment)")
+    ap.add_argument("--goals", default=None,
+                    help="goal list 'x,y;x,y;...' (default: the apartment tour)")
     ap.add_argument("--gdb-controller", action="store_true",
                     help="run controller_server under gdb; dump all thread stacks on the map->odom stall")
     args = ap.parse_args(argv)
@@ -254,7 +259,7 @@ def main(argv=None) -> int:
         log = out_dir / f"trial_{i}.log"
         proc = _launch(domain, args.planner, log, out_dir / f"bag_{i}" if args.bag else None,
                        out_dir / f"tfmon_{i}.log" if args.tf_monitor else None,
-                       gdb_controller=args.gdb_controller)
+                       gdb_controller=args.gdb_controller, world=args.world)
         sampler_stop, dumped = threading.Event(), []
         if args.gdb_controller:
             threading.Thread(target=_stall_sampler, args=(log, domain, sampler_stop, dumped),
@@ -263,7 +268,10 @@ def main(argv=None) -> int:
             env_domain = os.environ.get("ROS_DOMAIN_ID")
             os.environ["ROS_DOMAIN_ID"] = str(domain)
             os.environ["ROS_LOCALHOST_ONLY"] = "1"
-            result = _run_goals(DEFAULT_GOALS, args.goal_timeout, args.ready_timeout)
+            goals = DEFAULT_GOALS
+            if args.goals:
+                goals = [tuple(float(v) for v in g.split(",")) for g in args.goals.split(";")]
+            result = _run_goals(goals, args.goal_timeout, args.ready_timeout)
         finally:
             sampler_stop.set()
             _stop(proc)
