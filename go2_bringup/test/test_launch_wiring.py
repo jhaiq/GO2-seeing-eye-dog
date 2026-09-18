@@ -192,6 +192,62 @@ class TestSystemLaunch:
         assert offenders == [], f"launch files starting a bridge directly: {offenders}"
 
 
+def _started_nodes(planner):
+    """(package, executable, remappings) of every Node the planner starts."""
+    from launch import LaunchContext
+    from launch_ros.actions import Node
+
+    module = load_module(LAUNCH_DIR / "system.launch.py")
+    context = LaunchContext()
+    context.launch_configurations.update(
+        {"planner": planner, "perception": "none", "log_level": "info",
+         "use_sim_time": "false", "hardware_adapter": "dry_run", "dry_run_log_path": ""}
+    )
+    started = []
+    for entity in module.generate_launch_description().entities:
+        if not isinstance(entity, Node):
+            continue
+        if entity.condition is not None and not entity.condition.evaluate(context):
+            continue
+        remaps = {literal(a): literal(b) for a, b in (entity._Node__remappings or [])}
+        started.append((entity._Node__package, entity._Node__node_executable, remaps))
+    return started
+
+
+class TestPlannerSelection:
+    @pytest.mark.parametrize(
+        "planner,expected",
+        [
+            ("staged", {"approach_controller_node"}),
+            ("staged_nav", {"approach_controller_node", "nav_to_pose_adapter_node"}),
+            ("nav2", set()),
+        ],
+    )
+    def test_each_planner_starts_the_right_controllers(self, planner, expected):
+        executables = {
+            literal(exe) for pkg, exe, _ in _started_nodes(planner)
+            if literal(pkg) == "go2_approach_controller"
+        }
+        assert executables == expected
+
+    def test_the_adapter_serves_the_nav2_action_and_drives_the_controller(self):
+        adapter = [
+            remaps for pkg, exe, remaps in _started_nodes("staged_nav")
+            if literal(exe) == "nav_to_pose_adapter_node"
+        ]
+        assert len(adapter) == 1
+        remaps = adapter[0]
+        assert remaps["navigate_to_pose"] == "/navigate_to_pose"
+        assert remaps["goal_pose"] == "/goal_pose"
+        assert remaps["cancel_goal"] == "/go2/cancel_goal"
+        assert remaps["controller/status"] == "/go2/controller/status"
+
+    @pytest.mark.parametrize("planner", ["staged", "staged_nav", "nav2"])
+    def test_no_planner_node_touches_the_safe_topic(self, planner):
+        for _pkg, exe, remaps in _started_nodes(planner):
+            assert not any("cmd_vel_safe" in v for v in remaps.values()), literal(exe)
+
+
 class TestDeprecatedLaunchIsInert:
     def test_the_old_entrypoint_refuses_to_run(self):
         """

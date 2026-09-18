@@ -14,8 +14,11 @@ Arguments
     of which require hardware. ``none`` starts none of them, for running the
     decision half against replayed or synthetic inputs.
 
-``planner``         staged | nav2      (default: staged)
+``planner``         staged | staged_nav | nav2      (default: staged)
     ``staged``  go2_approach_controller: straight-line approach, no planning.
+    ``staged_nav``  the staged controller plus nav_to_pose_adapter_node, which
+                serves /navigate_to_pose over it so Nav2-shaped clients (the
+                semantic grounding node) can drive it. Still no planning.
     ``nav2``    the real Nav2 stack, with its unstamped ``cmd_vel`` remapped
                 into the candidate inlet so it can never reach the bridge.
                 Requires a map, localization, odometry, TF and a laser scan —
@@ -132,7 +135,9 @@ def _staged_controller(log_level):
         parameters=[_config("navigation.yaml")],
         arguments=["--ros-args", "--log-level", log_level],
         condition=IfCondition(
-            PythonExpression(["'", LaunchConfiguration("planner"), "' == 'staged'"])
+            PythonExpression(
+                ["'", LaunchConfiguration("planner"), "' in ('staged', 'staged_nav')"]
+            )
         ),
         remappings=[
             ("goal_pose", "/goal_pose"),
@@ -140,6 +145,28 @@ def _staged_controller(log_level):
             # Publishes the CANDIDATE topic. Not the safe topic. It has no
             # publisher of the safe topic's type at all.
             ("cmd_vel_candidate", "/cmd_vel_candidate"),
+            ("controller/status", "/go2/controller/status"),
+        ],
+    )
+
+
+def _nav_to_pose_adapter(log_level):
+    """NavigateToPose over the staged controller. Adds no motion capability."""
+    return Node(
+        package="go2_approach_controller",
+        executable="nav_to_pose_adapter_node",
+        name="nav_to_pose_adapter_node",
+        output="screen",
+        emulate_tty=True,
+        parameters=[_config("navigation.yaml")],
+        arguments=["--ros-args", "--log-level", log_level],
+        condition=IfCondition(
+            PythonExpression(["'", LaunchConfiguration("planner"), "' == 'staged_nav'"])
+        ),
+        remappings=[
+            ("navigate_to_pose", "/navigate_to_pose"),
+            ("goal_pose", "/goal_pose"),
+            ("cancel_goal", "/go2/cancel_goal"),
             ("controller/status", "/go2/controller/status"),
         ],
     )
@@ -235,7 +262,8 @@ def generate_launch_description() -> LaunchDescription:
             "planner",
             default_value="staged",
             description=(
-                "staged (go2_approach_controller: straight-line, no planning) "
+                "staged (go2_approach_controller: straight-line, no planning), "
+                "staged_nav (staged + /navigate_to_pose adapter) "
                 "or nav2 (requires map, localization, odometry, TF, laser scan)."
             ),
         ),
@@ -275,6 +303,7 @@ def generate_launch_description() -> LaunchDescription:
         + [
             _grounding_node(log_level),
             _staged_controller(log_level),
+            _nav_to_pose_adapter(log_level),
             _nav2_group(log_level),
             _localization_group(),
             motion_authority,
