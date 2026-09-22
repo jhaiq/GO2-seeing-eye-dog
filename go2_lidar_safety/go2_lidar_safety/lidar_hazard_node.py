@@ -97,9 +97,15 @@ class LidarHazardNode(Node):
         # Own node + thread: this node spins single-threaded, so a blocking
         # lookup with a timeout could never receive the transform it waits for
         # (a cloud stamped 1 ms after the latest odom TF failed as "future
-        # extrapolation" in closed-loop sim). node=None: a node may only be in
-        # one executor.
-        self._tf_listener = tf2_ros.TransformListener(self._tf_buffer, None, spin_thread=True)
+        # extrapolation" in closed-loop sim). A separate node because a node may
+        # only be in one executor. Created here, not via node=None: tf2_ros
+        # 0.25.20 (the payload's Humble) dereferences a None node.
+        self._tf_node = rclpy.create_node(
+            f"{self.get_name()}_tf_listener", namespace=self.get_namespace()
+        )
+        self._tf_listener = tf2_ros.TransformListener(
+            self._tf_buffer, self._tf_node, spin_thread=True
+        )
 
         self._pending: Optional[PointCloud2] = None
         self._pending_steady: float = 0.0
@@ -199,6 +205,11 @@ class LidarHazardNode(Node):
             points_evaluated=result.points_evaluated,
             cloud_age_s=round(age, 3),
         )
+
+
+    def destroy_node(self) -> None:
+        self._tf_node.destroy_node()
+        super().destroy_node()
 
 
 def main(args=None) -> None:

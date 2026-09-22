@@ -284,3 +284,27 @@ class TestWithRealArbiter:
         tail = [m for m in received if m.header.stamp.sec > 0][-10:]
         assert tail and all(m.twist.linear.x == 0.0 for m in tail)
         assert any("SAFETY_CONTEXT_STALE" in list(m.reason_codes) for m in received)
+
+
+def test_tf_listener_gets_a_real_node(graph, monkeypatch):
+    """tf2_ros 0.25.20 (the payload's Humble) crashes on TransformListener(buf, None).
+
+    Workstation tf2_ros 0.25.23 accepts None and makes its own node, so sim never
+    saw it; the node died at launch on the robot (2026-09-22).
+    """
+    import tf2_ros
+    from go2_lidar_safety.lidar_hazard_node import LidarHazardNode
+    from rclpy.node import Node
+
+    real = tf2_ros.TransformListener
+    seen = []
+
+    def strict_listener(buffer, node, *args, **kwargs):
+        seen.append(node)
+        if node is None:
+            raise AttributeError("'NoneType' object has no attribute 'create_subscription'")
+        return real(buffer, node, *args, **kwargs)
+
+    monkeypatch.setattr(tf2_ros, "TransformListener", strict_listener)
+    graph.add(LidarHazardNode())
+    assert len(seen) == 1 and isinstance(seen[0], Node)
