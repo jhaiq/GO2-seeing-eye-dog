@@ -312,4 +312,12 @@ velocity_smoother:
     odom_topic: "odom"
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]
-    velocity_timeout: 1.0
+    # How long the last controller command is republished after the controller
+    # goes silent, before the ramp down starts. The stamper restamps every
+    # smoothed command, so the arbiter and bridge watchdogs cannot see a dead
+    # controller: this timeout is the only thing that ends the blind hold
+    # (1.0 s measured 1.08 s of full-speed motion after a controller_server
+    # SIGKILL in go2_sim). 0.25 s is 5 cycles of controller_frequency 20 Hz, so
+    # one or two late controller cycles do not start a deceleration
+    # (go2_bringup/test/test_smoother_stop_timeout.py checks both sides).
+    velocity_timeout: 0.25
