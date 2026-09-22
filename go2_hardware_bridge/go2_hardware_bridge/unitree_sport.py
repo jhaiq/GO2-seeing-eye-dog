@@ -52,6 +52,7 @@ Reasons:
 from __future__ import annotations
 
 import json
+import sys
 import threading
 import time
 from typing import Any, Optional
@@ -65,6 +66,9 @@ from go2_hardware_bridge.interface import (
 
 #: Unitree Sport API identifiers.
 API_ID_DAMP = 1001
+# Shutdown: StopMove sent this many times, this far apart (no Damp).
+SHUTDOWN_STOP_REPEATS = 3
+SHUTDOWN_STOP_GAP_S = 0.02
 API_ID_STOP_MOVE = 1003
 API_ID_MOVE = 1008
 API_ID_STAND_UP = 1010
@@ -227,12 +231,23 @@ class UnitreeSportBridge(HardwareBridgeInterface):
         return snapshot
 
     def shutdown(self) -> None:
-        try:
-            self.send_zero()
-            self.emergency_stop()
-        except Exception:  # noqa: BLE001
-            pass
+        # Leave the robot STANDING and still: StopMove only, repeated so a single
+        # lost message does not leave the last Move latched. Never Damp here: Damp
+        # drops the joints and the robot falls where it stands. Damp belongs only
+        # to the explicit ~/emergency_stop service.
+        sent = 0
+        for i in range(SHUTDOWN_STOP_REPEATS):
+            try:
+                if self._publish(API_ID_STOP_MOVE, None):
+                    sent += 1
+            except Exception:  # noqa: BLE001, shutdown must never raise
+                pass
+            if i + 1 < SHUTDOWN_STOP_REPEATS:
+                time.sleep(SHUTDOWN_STOP_GAP_S)
+        if sent == 0:
+            print("go2_hardware_bridge: shutdown could not send StopMove", file=sys.stderr)
         with self._lock:
+            self._holding_nonzero = False
             self._health.state = BridgeState.STOPPED
             self._health.connected = False
 

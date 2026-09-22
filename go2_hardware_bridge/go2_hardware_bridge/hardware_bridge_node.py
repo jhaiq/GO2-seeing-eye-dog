@@ -41,6 +41,7 @@ Any refusal produces a stop, never a pass-through.
 from __future__ import annotations
 
 import math
+import signal
 from typing import List, Optional
 
 import rclpy
@@ -50,6 +51,7 @@ from rclpy.clock import Clock, ClockType
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
+from rclpy.signals import SignalHandlerOptions
 from std_srvs.srv import Trigger
 
 from go2_hardware_bridge.dry_run import DryRunGo2Bridge
@@ -540,35 +542,35 @@ def main(args=None) -> None:
     """
     Entry point.
 
-    ``ExternalShutdownException`` is handled explicitly. Without it, a SIGTERM
-    during ``spin`` (which is how launch stops a node, and how Ctrl-C reaches
-    one) invalidates the rcl context underneath the executor and raises
-    ``RCLError: failed to initialize wait set`` from inside ``spin``, before
-    the ``finally`` block can run ``destroy_node``. For the bridge, that
-    would mean the adapter never being told to stop, leaving a physical robot to
-    coast on its last command until its own controller times out.
+    rclpy's default SIGINT/SIGTERM handler shuts the rcl context down BEFORE the
+    ``finally`` block runs. Every stop published from ``destroy_node`` then fails
+    silently and the robot keeps executing its last Move (measured: after SIGINT
+    with a live 0.2 m/s stream, no StopMove reached /api/sport/request). The same
+    defect was fixed in the Phoenix lowcmd bridge.
 
-    Catching it here means the teardown path runs on every ordinary stop.
+    So the rclpy handlers are disabled, SIGINT and SIGTERM only set a flag, the
+    node is spun in short slices, and teardown runs with the context still alive:
+    the adapter's shutdown (StopMove, never Damp) is actually delivered. A second
+    signal during teardown is ignored so it cannot interrupt the stop.
     """
-    rclpy.init(args=args)
+    rclpy.init(args=args, signal_handler_options=SignalHandlerOptions.NO)
+    stop: list = []
+
+    def _request_stop(signum, _frame) -> None:
+        stop.append(signum)
+
+    signal.signal(signal.SIGINT, _request_stop)
+    signal.signal(signal.SIGTERM, _request_stop)
     node = None
     try:
         node = HardwareBridgeNode()
-        rclpy.spin(node)
+        while not stop and rclpy.ok():
+            rclpy.spin_once(node, timeout_sec=0.05)
     except (KeyboardInterrupt, ExternalShutdownException):
         pass
-    except Exception:  # noqa: BLE001
-        # Which exception surfaces on SIGTERM is a race between the signal
-        # handler invalidating the rcl context and `spin` building its next
-        # wait set. Losing that race raises RCLError("failed to initialize
-        # wait set") instead of ExternalShutdownException, and the difference
-        # is load-dependent: it passed in isolation and failed under a full
-        # test run. Treat any exception raised AFTER the context is already
-        # down as the ordinary shutdown it is, and re-raise anything else so a
-        # genuine fault is still loud.
-        if rclpy.ok():
-            raise
     finally:
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
         if node is not None:
             node.destroy_node()
         if rclpy.ok():
