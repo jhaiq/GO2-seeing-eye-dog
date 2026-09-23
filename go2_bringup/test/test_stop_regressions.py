@@ -340,7 +340,7 @@ def _exe(package: str, executable: str) -> str:
     return os.path.join(get_package_prefix(package), "lib", package, executable)
 
 
-def start_run(rclpy, log_dir: Path, interactive: bool) -> Run:
+def start_run(rclpy, log_dir: Path, interactive: bool, nav_bt: Optional[str] = None) -> Run:
     domain = _next_domain()
     rec = Recorder(rclpy, domain)
     time.sleep(2.0)
@@ -364,7 +364,8 @@ def start_run(rclpy, log_dir: Path, interactive: bool) -> Run:
     stack = subprocess.Popen(
         ["ros2", "launch", "go2_bringup", "system.launch.py", "perception:=none",
          "planner:=nav2", "localization:=slam_mapping", "lidar_safety:=true",
-         "hardware_adapter:=unitree_sport", "cloud_in_topic:=/utlidar/cloud_deskewed"],
+         "hardware_adapter:=unitree_sport", "cloud_in_topic:=/utlidar/cloud_deskewed"]
+        + ([f"nav_bt:={nav_bt}"] if nav_bt else []),
         env=env, stdin=stdin, stdout=open(log_dir / "stack.log", "w"),
         stderr=subprocess.STDOUT, start_new_session=True)
     if interactive:
@@ -526,6 +527,8 @@ class Case:
     recovery_gap: bool = False
     motion_end_bound_s: Optional[float] = None
     quiet_bound_s: Optional[float] = None
+    # nav_bt launch argument; None launches exactly as before (default tree).
+    nav_bt: Optional[str] = None
 
 
 # Bounds. The bridge sends StopMove on its own shutdown at once (0.5 s leaves
@@ -560,6 +563,16 @@ CASES = [
          ev_kill_node("nav2_planner", "planner_server", signal.SIGKILL),
          stop_bound_s=7.0, observe_s=12.0, recovery_gap=True, motion_end_bound_s=6.5,
          quiet_bound_s=2.5),
+    # The same crashes with the recovery-free tree: the goal aborts, so the
+    # first StopMove must come within the quiet bound and nothing may move
+    # afterwards (the criterion the default tree fails, see RECOVERY_GAP).
+    Case("controller_server_sigkill_no_recovery",
+         ev_kill_node("nav2_controller", "controller_server", signal.SIGKILL),
+         stop_bound_s=1.5, blind_hold_bound_s=0.5, translation_stop_bound_s=1.4,
+         nav_bt="no_recovery"),
+    Case("planner_server_sigkill_no_recovery",
+         ev_kill_node("nav2_planner", "planner_server", signal.SIGKILL),
+         stop_bound_s=2.5, observe_s=12.0, nav_bt="no_recovery"),
     Case("lifecycle_shutdown", ev_lifecycle("SHUTDOWN"), stop_bound_s=1.5),
     Case("lifecycle_pause", ev_lifecycle("PAUSE"), stop_bound_s=1.5),
     Case("arbiter_sigint",
@@ -583,7 +596,8 @@ RECOVERY_GAP = (
     "after a controller_server or planner_server crash the stock Humble BT runs "
     "its Spin recovery; behavior_server publishes /cmd_vel directly (not through "
     "the smoother), so the robot keeps moving after the stop chain has run, until "
-    "the lifecycle manager's 4 s bond timeout resets the servers"
+    "the lifecycle manager's 4 s bond timeout resets the servers; "
+    "nav_bt:=no_recovery avoids it (the *_no_recovery cases)"
 )
 
 #: case name -> result dict, for the known-gap checks below.
@@ -606,7 +620,7 @@ def test_stop_case(case: Case, tmp_path):
         pytest.skip("full-stack sim case; set GO2_STOP_REG=1 to run")
     rclpy = _ros_imports()
     out_dir = Path(os.environ.get("STOP_REG_OUT", tmp_path)) / case.name
-    run = start_run(rclpy, out_dir, case.interactive)
+    run = start_run(rclpy, out_dir, case.interactive, case.nav_bt)
     arbiter_pid = None
     result = {"case": case.name}
     survivors = {"stack": [], "sim": []}

@@ -1,0 +1,27 @@
+<!--
+  NavigateToPose without recovery behaviours (BT.CPP v3, Humble).
+
+  Replans at 1 Hz like the stock navigate_to_pose_w_replanning_and_recovery
+  tree, but has no Spin, BackUp, Wait or ClearCostmap recovery and no
+  RecoveryNode retries: if ComputePathToPose or FollowPath fails, the tree
+  fails and the goal is ABORTED. Halting FollowPath cancels the controller,
+  which publishes zero velocity.
+
+  Why: with the stock tree, a controller_server or planner_server crash is
+  followed by the Spin recovery. behavior_server publishes /cmd_vel directly
+  (not through the velocity smoother) and checks collisions against the local
+  costmap that lives in the crashed controller, so the robot moves again after
+  the stop chain has run, until the lifecycle manager's bond timeout.
+
+  Selected with nav_bt:=no_recovery (system.launch.py / navigation.launch.py).
+-->
+<root main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <PipelineSequence name="NavigateWithReplanning">
+      <RateController hz="1.0">
+        <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
+      </RateController>
+      <FollowPath path="{path}" controller_id="FollowPath"/>
+    </PipelineSequence>
+  </BehaviorTree>
+</root>

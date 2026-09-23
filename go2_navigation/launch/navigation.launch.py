@@ -7,11 +7,20 @@ runs controller_server under a wrapper, e.g. gdb, to capture thread stacks
 when the controller's map->odom stall occurs (docs/DEPLOYMENT.md, open
 issue). The velocity output is /cmd_vel (smoothed), which system.launch.py
 diverts into the safety arbiter's candidate inlet.
+
+``nav_bt``  default | no_recovery   (default: default)
+    ``default`` leaves bt_navigator exactly as before: Humble's stock
+    navigate_to_pose_w_replanning_and_recovery tree. ``no_recovery`` sets
+    default_nav_to_pose_bt_xml to behavior_trees/navigate_to_pose_no_recovery.xml:
+    same 1 Hz replanning, no recovery behaviours, a failure aborts the goal.
 """
 from __future__ import annotations
 
+import os
+
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, SetEnvironmentVariable
+from launch.actions import DeclareLaunchArgument, OpaqueFunction, SetEnvironmentVariable
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.descriptions import ParameterFile
@@ -27,6 +36,22 @@ LIFECYCLE_NODES = [
     "waypoint_follower",
     "velocity_smoother",
 ]
+
+NAV_BT_CHOICES = ("default", "no_recovery")
+
+
+def no_recovery_bt_path() -> str:
+    return os.path.join(get_package_share_directory("go2_navigation"), "behavior_trees",
+                        "navigate_to_pose_no_recovery.xml")
+
+
+def bt_navigator_extra_params(nav_bt: str) -> list:
+    """Parameters added on top of the params file for bt_navigator. [] for the default."""
+    if nav_bt not in NAV_BT_CHOICES:
+        raise ValueError(f"nav_bt must be one of {NAV_BT_CHOICES}, got {nav_bt!r}")
+    if nav_bt == "no_recovery":
+        return [{"default_nav_to_pose_bt_xml": no_recovery_bt_path()}]
+    return []
 
 
 def generate_launch_description() -> LaunchDescription:
@@ -45,13 +70,13 @@ def generate_launch_description() -> LaunchDescription:
     remaps = [("/tf", "tf"), ("/tf_static", "tf_static")]
     args = ["--ros-args", "--log-level", log_level]
 
-    def server(package, executable, extra_remaps=(), prefix=None):
+    def server(package, executable, extra_remaps=(), prefix=None, extra_params=()):
         return Node(
             package=package,
             executable=executable,
             name=executable,
             output="screen",
-            parameters=[params],
+            parameters=[params] + list(extra_params),
             arguments=args,
             remappings=remaps + list(extra_remaps),
             prefix=prefix,
@@ -63,6 +88,11 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument("use_sim_time", default_value="false"),
             DeclareLaunchArgument("autostart", default_value="true"),
             DeclareLaunchArgument("log_level", default_value="info"),
+            DeclareLaunchArgument(
+                "nav_bt",
+                default_value="default",
+                description="default (stock Humble tree) or no_recovery (goal aborts on failure).",
+            ),
             DeclareLaunchArgument(
                 "params_file",
                 default_value=PathJoinSubstitution(
@@ -79,7 +109,10 @@ def generate_launch_description() -> LaunchDescription:
             server("nav2_smoother", "smoother_server"),
             server("nav2_planner", "planner_server"),
             server("nav2_behaviors", "behavior_server"),
-            server("nav2_bt_navigator", "bt_navigator"),
+            OpaqueFunction(function=lambda context: [server(
+                "nav2_bt_navigator", "bt_navigator",
+                extra_params=bt_navigator_extra_params(
+                    LaunchConfiguration("nav_bt").perform(context)))]),
             server("nav2_waypoint_follower", "waypoint_follower"),
             server("nav2_velocity_smoother", "velocity_smoother",
                    [("cmd_vel", "cmd_vel_nav"), ("cmd_vel_smoothed", "cmd_vel")]),
