@@ -368,8 +368,9 @@ Sport API (`Move`, api_id 1008) rather than `/lowcmd`, because:
 
 `send_zero` issues `StopMove` (1003) rather than `Move(0,0,0)`, so the
 controller halts rather than actively tracking a commanded zero.
-`emergency_stop` issues `StopMove` then `Damp` (1001), the strongest stop
-reachable over the Sport API without cutting power.
+`emergency_stop` issues `StopMove` only and latches; while latched it re-asserts
+`StopMove` at most once per second. Damp (1001) drops the robot and is refused by
+`_publish` by construction (2026-10-03, motion-authority change).
 
 Its `connect()` reports whether the sport service has a subscriber on the
 request topic, and says in its own `health().detail` that subscriber presence

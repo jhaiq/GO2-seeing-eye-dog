@@ -347,6 +347,7 @@ class TestInteractionOutcomes:
 
         say("stop")
         adapter.clear()
+        t_stop = adapter._clock()
         graph.spin_for(2.5, each=lambda: perceive())
 
         records = adapter.velocity_records()
@@ -355,15 +356,18 @@ class TestInteractionOutcomes:
         # The robot does not stop instantaneously: the arbiter's acceleration
         # limit ramps it down, which is the desired behaviour on a legged
         # platform carrying no cargo but standing next to a person. What is
-        # asserted is that it converges to zero and STAYS there.
-        assert all(
-            abs(r["vx"]) < 1e-9 and abs(r["vy"]) < 1e-9 and abs(r["wz"]) < 1e-9
-            for r in records[-30:]
-        ), "the robot was still moving well after the user said stop"
-
-        moving = [i for i, r in enumerate(records) if abs(r["vx"]) > 1e-9]
+        # asserted is that it converges to zero and STAYS there. The bridge
+        # sends StopMove on the transition and re-asserts it at a bounded rate
+        # (not one per tick), so this is asserted in time, not by record count.
+        assert records[-1]["kind"] == "zero", (
+            "the robot was still moving well after the user said stop"
+        )
+        moving = [r for r in records if abs(r["vx"]) > 1e-9]
         if moving:
-            assert moving[-1] < len(records) // 2, (
+            assert any(r["kind"] == "zero" and r["t"] > moving[-1]["t"] for r in records), (
+                "the robot was still moving well after the user said stop"
+            )
+            assert moving[-1]["t"] - t_stop < 1.25, (
                 "deceleration took more than half the observation window; the "
                 "cancel path may not be wired"
             )
