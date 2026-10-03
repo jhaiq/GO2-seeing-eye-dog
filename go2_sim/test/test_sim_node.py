@@ -181,16 +181,17 @@ class TestRealUnitreeAdapter:
         graph.spin_for(0.5, each=adapter.tick, step=0.02)
         assert sim.state.x == pytest.approx(x, abs=1e-3)
 
-    def test_emergency_stop_damps(self, graph):
+    def test_emergency_stop_stops_without_damp(self, graph):
+        """2026-10-03: emergency_stop is StopMove only. Damp (1001) drops the robot and is
+        refused by the adapter; holding still afterwards is the bridge node's latch
+        (go2_hardware_bridge tests), not a damped robot."""
         sim = _make_sim(graph)
         adapter = self._adapter(graph)
         graph.spin_for(0.5, each=lambda: adapter.send_velocity(0.3, 0.0, 0.0), step=0.05)
         adapter.emergency_stop()
-        graph.spin_for(0.3)
-        assert sim.damped
-        x = sim.state.x
-        graph.spin_for(0.5, each=lambda: adapter.send_velocity(0.3, 0.0, 0.0), step=0.05)
-        assert sim.state.x == pytest.approx(x, abs=1e-3)
+        graph.spin_for(0.8)
+        assert not sim.damped
+        assert sim.state.vx == pytest.approx(0.0, abs=1e-2)
 
     def test_requests_use_the_hardware_verified_header(self, graph):
         """Unique identity.id per request and noreply=false (field notes s4), so
