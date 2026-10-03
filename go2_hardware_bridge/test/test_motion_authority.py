@@ -146,7 +146,7 @@ class TestBridgeGating:
         assert not adapter.moved()
         assert node._authority_dropped > 0
         adapter.clear()
-        graph.spin_for(0.4, each=lambda: both(0.0, owner="come_here"))
+        graph.spin_for(1.2, each=lambda: both(0.0, owner="come_here"))  # > reassert period
         assert "zero" in kinds(adapter)
         assert not adapter.moved()
 
@@ -177,4 +177,25 @@ class TestBridgeGating:
         graph.spin_for(0.5, each=lambda: both(0.2, owner="come_here"))
         assert not adapter.moved()
         # First post-revoke action is a zero.
+        assert kinds(adapter)[0] == "zero"
+
+
+@requires_ros
+class TestBoundedZero:
+    """StopMove is a transition plus a bounded reassert, never one per incoming message."""
+
+    def test_unowned_nonzero_stream_does_not_flood_stopmove(self, authority_setup):
+        graph, node, adapter, send, give, both = authority_setup
+        graph.spin_for(2.0, each=lambda: both(0.2, owner="come_here"))
+        assert not adapter.moved()
+        assert kinds(adapter).count("zero") <= 3   # ~1 per s, not one per command
+
+    def test_zero_command_stream_is_bounded(self, authority_setup):
+        graph, node, adapter, send, give, both = authority_setup
+        graph.spin_for(0.5, each=lambda: both(0.2))
+        assert adapter.moved()
+        adapter.clear()
+        graph.spin_for(2.0, each=lambda: both(0.0))
+        z = kinds(adapter).count("zero")
+        assert 1 <= z <= 3   # transition StopMove + <= 1/s reassert
         assert kinds(adapter)[0] == "zero"

@@ -99,6 +99,8 @@ STOPPING_REASON_CODES = frozenset(
 
 #: While the bridge estop is latched, StopMove is reasserted at most this often.
 ESTOP_REASSERT_PERIOD_S = 1.0
+# Bounded re-assertion of a normal (non-emergency) StopMove while the bridge is stopped.
+ZERO_REASSERT_PERIOD_S = 1.0
 
 CONTROL_QOS = QoSProfile(
     depth=1,
@@ -237,6 +239,7 @@ class HardwareBridgeNode(Node):
         self._pending: Optional[SafeVelocityCommand] = None
         self._last_estop_tx: Optional[float] = None
         self._authority_dropped = 0
+        self._last_zero_sent: Optional[float] = None
         authority_topic = str(self.get_parameter("motion_authority_topic").value)
         self._gate = AuthorityGate(
             str(self.get_parameter("motion_authority_name").value),
@@ -509,8 +512,12 @@ class HardwareBridgeNode(Node):
     def _stop(self, now: float, reasons: List[str], emergency: bool = False) -> None:
         if emergency:
             self._adapter.emergency_stop()
-        else:
+        elif (self._commanded_nonzero or self._last_zero_sent is None
+              or now - self._last_zero_sent >= ZERO_REASSERT_PERIOD_S):
+            # StopMove on the transition out of motion, then re-asserted at most once per
+            # ZERO_REASSERT_PERIOD_S; never one StopMove per incoming zero or refused command.
             self._adapter.send_zero()
+            self._last_zero_sent = now
         self._last_tx = (0.0, 0.0, 0.0)
         if self._commanded_nonzero:
             self._commanded_nonzero = False

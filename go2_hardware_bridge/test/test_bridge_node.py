@@ -130,6 +130,7 @@ class TestStaleAndWatchdog:
         assert adapter.moved()
 
         adapter.clear()
+        t_window = adapter._clock()
         graph.spin_for(1.0)  # arbiter is "dead": nothing is published
 
         records = adapter.velocity_records()
@@ -140,23 +141,20 @@ class TestStaleAndWatchdog:
         # honoured. That is correct: it was a legitimately authorized command.
         # What must NOT happen is motion continuing past the watchdog. Assert
         # on the tail, and on the fact that motion ceased and stayed ceased.
-        tail = records[-20:]
-        assert all(
-            abs(r["vx"]) < 1e-9 and abs(r["vy"]) < 1e-9 and abs(r["wz"]) < 1e-9
-            for r in tail
-        ), "bridge continued to actuate after its command source disappeared"
-
-        moving_indices = [
-            i
-            for i, r in enumerate(records)
-            if abs(r["vx"]) > 1e-9 or abs(r["vy"]) > 1e-9 or abs(r["wz"]) > 1e-9
-        ]
-        if moving_indices:
-            # Any residual motion must be confined to the start of the window,
-            # i.e. bounded by the watchdog, not spread through it.
-            assert moving_indices[-1] < len(records) // 2, (
+        # The bridge stops on its own timer and then re-asserts StopMove at a bounded
+        # rate (not one per tick), so assert in time rather than by record count:
+        # the bridge ends stopped, and any residual motion is confined to the first
+        # half of the window, i.e. bounded by the watchdog.
+        assert records[-1]["kind"] == "zero", (
+            "bridge continued to actuate after its command source disappeared"
+        )
+        moving = [r for r in records
+                  if abs(r["vx"]) > 1e-9 or abs(r["vy"]) > 1e-9 or abs(r["wz"]) > 1e-9]
+        if moving:
+            assert moving[-1]["t"] - t_window < 0.5, (
                 "motion persisted well beyond the watchdog window"
             )
+            assert any(r["kind"] == "zero" and r["t"] > moving[-1]["t"] for r in records)
 
 
 class TestMalformedCommands:
