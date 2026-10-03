@@ -241,3 +241,32 @@ class TestReviewBridge:
         give(epoch=2)                                 # null+new epoch coalesced into one tick
         graph.spin_for(0.05)
         assert kinds(adapter)[:1] == ["zero"]
+
+
+def _diag_values(node):
+    sent = []
+    orig = node._diag_pub.publish
+    node._diag_pub.publish = lambda a: sent.append(a)
+    try:
+        node._publish_status(node._steady_now())
+    finally:
+        node._diag_pub.publish = orig
+    st = [s for s in sent[-1].status if s.name == "go2_hardware_bridge: actuation"][0]
+    return {kv.key: kv.value for kv in st.values}
+
+
+@requires_ros
+class TestAttestation:
+    def test_diagnostics_attest_gated_mode_and_interface(self, authority_setup):
+        graph, node, adapter, send, give, both = authority_setup
+        v = _diag_values(node)
+        assert v["authority_enabled"] == "True"
+        assert v["authority_topic"] == "/test/grant" and v["authority_name"] == "nav2"
+
+    def test_diagnostics_attest_legacy_mode(self, graph):
+        from go2_hardware_bridge.dry_run import DryRunGo2Bridge
+        from go2_hardware_bridge.hardware_bridge_node import HardwareBridgeNode
+        node = HardwareBridgeNode(adapter=DryRunGo2Bridge())
+        graph.add(node)
+        v = _diag_values(node)
+        assert v["authority_enabled"] == "False" and v["authority_topic"] == ""

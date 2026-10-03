@@ -322,6 +322,11 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("dry_run_log_path", default_value=""),
         DeclareLaunchArgument("use_sim_time", default_value="false"),
         DeclareLaunchArgument("log_level", default_value="info"),
+        # Motion authority (MOSAIC deployments set these; empty topic = legacy, ungated).
+        # Declared and forwarded explicitly so the bridge parameters come from this file.
+        DeclareLaunchArgument("motion_authority_topic", default_value=""),
+        DeclareLaunchArgument("motion_authority_name", default_value="nav2"),
+        DeclareLaunchArgument("grant_timeout_s", default_value="0.3"),
     ]
 
     motion_authority = IncludeLaunchDescription(
@@ -330,6 +335,9 @@ def generate_launch_description() -> LaunchDescription:
             "hardware_adapter": LaunchConfiguration("hardware_adapter"),
             "dry_run_log_path": LaunchConfiguration("dry_run_log_path"),
             "log_level": log_level,
+            "motion_authority_topic": LaunchConfiguration("motion_authority_topic"),
+            "motion_authority_name": LaunchConfiguration("motion_authority_name"),
+            "grant_timeout_s": LaunchConfiguration("grant_timeout_s"),
             "require_localization": PythonExpression(
                 ["'false' if '", LaunchConfiguration("localization"), "' == 'none' else 'true'"]
             ),

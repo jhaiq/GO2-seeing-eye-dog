@@ -240,7 +240,9 @@ class HardwareBridgeNode(Node):
         self._last_estop_tx: Optional[float] = None
         self._authority_dropped = 0
         self._last_zero_sent: Optional[float] = None
-        authority_topic = str(self.get_parameter("motion_authority_topic").value)
+        authority_topic = str(self.get_parameter("motion_authority_topic").value).strip()
+        # Reported verbatim in /diagnostics: the topic this gate actually subscribes to.
+        self._authority_topic = authority_topic
         self._gate = AuthorityGate(
             str(self.get_parameter("motion_authority_name").value),
             float(self.get_parameter("grant_timeout_s").value),
@@ -591,6 +593,8 @@ class HardwareBridgeNode(Node):
             KeyValue(key="last_reject_reasons", value=",".join(msg.last_reject_reasons)),
             KeyValue(key="transmit_failures", value=str(msg.transmit_failures)),
             KeyValue(key="authority_enabled", value=str(auth["enabled"])),
+            KeyValue(key="authority_topic", value=self._authority_topic),
+            KeyValue(key="authority_name", value=self._gate.name),
             KeyValue(key="authority_owned", value=str(auth["owned"])),
             KeyValue(key="authority_owner", value=str(auth["owner"])),
             KeyValue(key="authority_epoch", value=str(auth["epoch"])),
