@@ -69,9 +69,21 @@ class AuthorityGate:
         grant = parse_grant(raw)
         if grant is None:
             return False
+        g = self._grant
+        if g is not None and grant["guardian"] == g["guardian"] and grant["epoch"] < g["epoch"]:
+            return False  # late grant from an older epoch of the same guardian
         self._grant = grant
         self._rx = float(now)
         return True
+
+    def held_by_other(self, now: float) -> bool:
+        """A fresh grant names a different owner (another stack is moving the robot)."""
+        if not self.enabled or self._grant is None or self._rx is None:
+            return False
+        if now - self._rx > self.timeout_s:
+            return False
+        owner = self._grant["owner"]
+        return owner is not None and owner != self.name
 
     def owned(self, now: float) -> bool:
         if not self.enabled:

@@ -445,7 +445,12 @@ class HardwareBridgeNode(Node):
             self._pending = None
             self._stop(now, ["AUTHORITY_REVOKED"])
         elif event == ACQUIRED:
+            # A new epoch (possibly with the revoke coalesced into this tick) also
+            # voids whatever was held; stop if we were still commanding motion.
             self.get_logger().info("Motion authority acquired")
+            self._pending = None
+            if self._commanded_nonzero:
+                self._stop(now, ["AUTHORITY_EPOCH_CHANGED"])
 
         msg = self._pending
         self._pending = None
@@ -512,8 +517,13 @@ class HardwareBridgeNode(Node):
     def _stop(self, now: float, reasons: List[str], emergency: bool = False) -> None:
         if emergency:
             self._adapter.emergency_stop()
-        elif (self._commanded_nonzero or self._last_zero_sent is None
-              or now - self._last_zero_sent >= ZERO_REASSERT_PERIOD_S):
+        elif self._commanded_nonzero or (
+                not self._gate.held_by_other(now)
+                and (self._last_zero_sent is None
+                     or now - self._last_zero_sent >= ZERO_REASSERT_PERIOD_S)):
+            # While another stack holds the grant, this idle bridge does not re-assert
+            # StopMove into that stack's motion; a transition out of our own motion
+            # and the emergency path always stop.
             # StopMove on the transition out of motion, then re-asserted at most once per
             # ZERO_REASSERT_PERIOD_S; never one StopMove per incoming zero or refused command.
             self._adapter.send_zero()

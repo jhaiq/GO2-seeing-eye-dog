@@ -146,7 +146,9 @@ class TestBridgeGating:
         assert not adapter.moved()
         assert node._authority_dropped > 0
         adapter.clear()
-        graph.spin_for(1.2, each=lambda: both(0.0, owner="come_here"))  # > reassert period
+        # Not owner and nobody else holds the grant: StopMove is still sent (never
+        # gated by ownership). While another stack holds it, see TestReviewBridge.
+        graph.spin_for(1.2, each=lambda: both(0.0, owner=None))  # > reassert period
         assert "zero" in kinds(adapter)
         assert not adapter.moved()
 
@@ -199,3 +201,43 @@ class TestBoundedZero:
         z = kinds(adapter).count("zero")
         assert 1 <= z <= 3   # transition StopMove + <= 1/s reassert
         assert kinds(adapter)[0] == "zero"
+
+
+class TestReviewFollowUps:
+    def test_older_epoch_from_same_guardian_is_rejected(self):
+        from go2_hardware_bridge.motion_authority import AuthorityGate
+        gate = AuthorityGate("nav2", 0.3, True)
+        assert gate.on_grant(grant(owner=None, epoch=2), 0.0)
+        assert gate.on_grant(grant(owner="nav2", epoch=1), 0.01) is False
+        assert not gate.owned(0.02)
+        assert gate.on_grant(grant(owner="nav2", epoch=0, guardian="g2"), 0.03)
+        assert gate.owned(0.04)
+
+    def test_held_by_other(self):
+        from go2_hardware_bridge.motion_authority import AuthorityGate
+        gate = AuthorityGate("nav2", 0.3, True)
+        assert not gate.held_by_other(0.0)
+        gate.on_grant(grant(owner="come_here", epoch=1), 0.0)
+        assert gate.held_by_other(0.1)
+        assert not gate.held_by_other(0.5)          # stale grant: nobody holds it
+        gate.on_grant(grant(owner=None, epoch=1), 0.6)
+        assert not gate.held_by_other(0.6)
+
+
+@requires_ros
+class TestReviewBridge:
+    def test_no_stopmove_reassert_into_another_owners_motion(self, authority_setup):
+        graph, node, adapter, send, give, both = authority_setup
+        graph.spin_for(0.3, each=lambda: give(owner="come_here"))
+        adapter.clear()
+        graph.spin_for(2.5, each=lambda: both(0.0, owner="come_here"))
+        assert kinds(adapter).count("zero") == 0     # not ours: no 1 Hz interference
+
+    def test_coalesced_new_epoch_while_moving_stops_and_needs_fresh_command(self, authority_setup):
+        graph, node, adapter, send, give, both = authority_setup
+        graph.spin_for(0.5, each=lambda: both(0.2, epoch=1))
+        assert adapter.moved()
+        adapter.clear()
+        give(epoch=2)                                 # null+new epoch coalesced into one tick
+        graph.spin_for(0.05)
+        assert kinds(adapter)[:1] == ["zero"]
