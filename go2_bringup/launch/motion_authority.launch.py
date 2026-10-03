@@ -62,6 +62,9 @@ def get_motion_authority_nodes(
     dry_run_log_path="",
     log_level="info",
     require_localization="false",
+    motion_authority_topic="",
+    motion_authority_name="nav2",
+    grant_timeout_s=0.3,
 ):
     """
     Return the arbiter and bridge node actions.
@@ -116,6 +119,13 @@ def get_motion_authority_nodes(
             {
                 "hardware_adapter": hardware_adapter,
                 "dry_run_log_path": dry_run_log_path,
+                "motion_authority_topic": ParameterValue(
+                    motion_authority_topic, value_type=str
+                ),
+                "motion_authority_name": ParameterValue(
+                    motion_authority_name, value_type=str
+                ),
+                "grant_timeout_s": ParameterValue(grant_timeout_s, value_type=float),
             },
         ],
         arguments=common_args,
@@ -137,6 +147,9 @@ def generate_launch_description() -> LaunchDescription:
     dry_run_log_path = LaunchConfiguration("dry_run_log_path")
     log_level = LaunchConfiguration("log_level")
     require_localization = LaunchConfiguration("require_localization")
+    motion_authority_topic = LaunchConfiguration("motion_authority_topic")
+    motion_authority_name = LaunchConfiguration("motion_authority_name")
+    grant_timeout_s = LaunchConfiguration("grant_timeout_s")
 
     return LaunchDescription(
         [
@@ -163,8 +176,29 @@ def generate_launch_description() -> LaunchDescription:
                 default_value="false",
                 description="true makes /go2/localization_valid mandatory for motion.",
             ),
+            DeclareLaunchArgument(
+                "motion_authority_topic",
+                default_value="",
+                description="Grant topic (std_msgs/String JSON). Empty = legacy, no gate.",
+            ),
+            DeclareLaunchArgument(
+                "motion_authority_name",
+                default_value="nav2",
+                description="Owner name this bridge must hold to forward Move.",
+            ),
+            DeclareLaunchArgument(
+                "grant_timeout_s",
+                default_value="0.3",
+                description="Max age (s) of a grant before it counts as revoked.",
+            ),
         ]
         + get_motion_authority_nodes(
-            hardware_adapter, dry_run_log_path, log_level, require_localization
+            hardware_adapter,
+            dry_run_log_path,
+            log_level,
+            require_localization,
+            motion_authority_topic,
+            motion_authority_name,
+            grant_timeout_s,
         )
     )

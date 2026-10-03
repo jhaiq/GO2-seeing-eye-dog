@@ -55,6 +55,9 @@ from rclpy.signals import SignalHandlerOptions
 from std_srvs.srv import Trigger
 
 from go2_hardware_bridge.dry_run import DryRunGo2Bridge
+from std_msgs.msg import String
+
+from go2_hardware_bridge.motion_authority import ACQUIRED, REVOKED, AuthorityGate
 from go2_hardware_bridge.interface import (
     BridgeHealth,
     BridgeState,
@@ -93,6 +96,9 @@ STOPPING_REASON_CODES = frozenset(
     }
 )
 
+
+#: While the bridge estop is latched, StopMove is reasserted at most this often.
+ESTOP_REASSERT_PERIOD_S = 1.0
 
 CONTROL_QOS = QoSProfile(
     depth=1,
@@ -140,8 +146,10 @@ def build_adapter(node: Node, kind: str, log_path: str) -> HardwareBridgeInterfa
 
 
 class HardwareBridgeNode(Node):
-    def __init__(self, adapter: Optional[HardwareBridgeInterface] = None) -> None:
-        super().__init__("hardware_bridge_node")
+    def __init__(
+        self, adapter: Optional[HardwareBridgeInterface] = None, **node_kwargs
+    ) -> None:
+        super().__init__("hardware_bridge_node", **node_kwargs)
 
         self.declare_parameter("hardware_adapter", "dry_run")
         self.declare_parameter("dry_run_log_path", "")
@@ -159,6 +167,10 @@ class HardwareBridgeNode(Node):
         #       sport service before failing closed.
         self.declare_parameter("adapter_discovery_timeout_sec", 10.0)
         self.declare_parameter("max_consecutive_transmit_failures", 3)
+        # Motion authority. "" = legacy (no gate, behaviour unchanged).
+        self.declare_parameter("motion_authority_topic", "")
+        self.declare_parameter("motion_authority_name", "nav2")
+        self.declare_parameter("grant_timeout_s", 0.3)
 
         self._watchdog = float(self.get_parameter("watchdog_timeout_sec").value)
         freq = float(self.get_parameter("control_frequency_hz").value)
@@ -223,6 +235,26 @@ class HardwareBridgeNode(Node):
         self._estop_engaged = False
         self._last_tx = (0.0, 0.0, 0.0)
         self._pending: Optional[SafeVelocityCommand] = None
+        self._last_estop_tx: Optional[float] = None
+        self._authority_dropped = 0
+        authority_topic = str(self.get_parameter("motion_authority_topic").value)
+        self._gate = AuthorityGate(
+            str(self.get_parameter("motion_authority_name").value),
+            float(self.get_parameter("grant_timeout_s").value),
+            enabled=bool(authority_topic),
+        )
+        if authority_topic:
+            self.create_subscription(
+                String,
+                authority_topic,
+                lambda m: self._gate.on_grant(m.data, self._steady_now()),
+                QoSProfile(
+                    depth=1,
+                    reliability=ReliabilityPolicy.RELIABLE,
+                    durability=DurabilityPolicy.VOLATILE,
+                    history=HistoryPolicy.KEEP_LAST,
+                ),
+            )
 
         self.create_subscription(
             SafeVelocityCommand, "cmd_vel_safe", self._safe_cb, CONTROL_QOS
@@ -392,9 +424,25 @@ class HardwareBridgeNode(Node):
         self._adapter.tick()
 
         if self._estop_engaged:
-            self._stop(now, [Reason.EMERGENCY_STOP], emergency=True)
+            # Latched: reassert StopMove at a bounded rate, not every tick.
+            if (
+                self._last_estop_tx is None
+                or (now - self._last_estop_tx) >= ESTOP_REASSERT_PERIOD_S
+            ):
+                self._last_estop_tx = now
+                self._stop(now, [Reason.EMERGENCY_STOP], emergency=True)
             self._publish_status(now)
             return
+
+        event = self._gate.update(now)
+        if event == REVOKED:
+            self.get_logger().warn("Motion authority revoked; StopMove")
+            # Whatever command is pending or held is stale: only a fresh
+            # command arriving after ACQUIRED may move the robot.
+            self._pending = None
+            self._stop(now, ["AUTHORITY_REVOKED"])
+        elif event == ACQUIRED:
+            self.get_logger().info("Motion authority acquired")
 
         msg = self._pending
         self._pending = None
@@ -435,6 +483,10 @@ class HardwareBridgeNode(Node):
 
         if abs(vx) <= 1e-9 and abs(vy) <= 1e-9 and abs(wz) <= 1e-9:
             self._stop(now, list(msg.reason_codes))
+        elif not self._gate.owned(now):
+            # Non-zero Move only while a fresh grant names this bridge.
+            self._authority_dropped += 1
+            self._stop(now, ["AUTHORITY_NOT_OWNED"])
         else:
             ok = self._adapter.send_velocity(vx, vy, wz)
             self._last_tx = (vx, vy, wz)
@@ -469,7 +521,8 @@ class HardwareBridgeNode(Node):
 
     def _estop_cb(self, _req, resp):
         self._estop_engaged = True
-        self._stop(self._steady_now(), [Reason.EMERGENCY_STOP], emergency=True)
+        self._last_estop_tx = self._steady_now()
+        self._stop(self._last_estop_tx, [Reason.EMERGENCY_STOP], emergency=True)
         self.get_logger().warn("Bridge emergency stop engaged (latched)")
         resp.success = True
         resp.message = "bridge emergency stop engaged; restart bridge to clear"
@@ -502,6 +555,7 @@ class HardwareBridgeNode(Node):
         status.name = "go2_hardware_bridge: actuation"
         status.hardware_id = self._adapter.name
         moving = any(abs(v) > 1e-9 for v in self._last_tx)
+        auth = self._gate.status(now)
         if self._estop_engaged or health.state == BridgeState.FAULT:
             status.level = DiagnosticStatus.ERROR
         elif not health.connected or self._last_reject_reasons:
@@ -519,6 +573,11 @@ class HardwareBridgeNode(Node):
             KeyValue(key="rejected_count", value=str(msg.rejected_count)),
             KeyValue(key="last_reject_reasons", value=",".join(msg.last_reject_reasons)),
             KeyValue(key="transmit_failures", value=str(msg.transmit_failures)),
+            KeyValue(key="authority_enabled", value=str(auth["enabled"])),
+            KeyValue(key="authority_owned", value=str(auth["owned"])),
+            KeyValue(key="authority_owner", value=str(auth["owner"])),
+            KeyValue(key="authority_epoch", value=str(auth["epoch"])),
+            KeyValue(key="authority_dropped", value=str(self._authority_dropped)),
             KeyValue(key="last_vx", value=f"{self._last_tx[0]:.3f}"),
             KeyValue(key="last_vy", value=f"{self._last_tx[1]:.3f}"),
             KeyValue(key="last_wz", value=f"{self._last_tx[2]:.3f}"),
