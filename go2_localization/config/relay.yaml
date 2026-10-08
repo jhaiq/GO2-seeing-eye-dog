@@ -10,7 +10,7 @@ go2_state_relay_node:
     cloud_in_topic: /utlidar/cloud_deskewed
     cloud_out_topic: /go2/lidar/points
     odom_out_topic: /odom
-    restamp_mode: offset
+    restamp_mode: receipt
     publish_lidar_extrinsic: false
     lidar_frame: utlidar_lidar
     lidar_xyz: [0.28945, 0.0, -0.046825]

@@ -1,6 +1,6 @@
 {
   "evaluation_type": "synthetic",
-  "timestamp": "2026-03-24T00:24:13Z",
+  "timestamp": "2026-09-04T15:54:53Z",
   "config": {
     "n_speakers": 50,
     "n_target_per_speaker": 20,
@@ -10,8 +10,8 @@
     "note": "Synthetic embeddings modelling ECAPA-TDNN behavior"
   },
   "results": {
-    "eer_percent": 25.0,
-    "eer_threshold": 0.8225,
+    "eer_percent": 0.0,
+    "eer_threshold": 0.7536,
     "n_target_trials": 1000,
     "n_nontarget_trials": 1000,
     "target_score_mean": 0.8222,
