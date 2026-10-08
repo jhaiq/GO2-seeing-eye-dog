@@ -39,6 +39,13 @@ Arguments
     combines most-restrictive-wins, so it can run alongside the camera
     monitor. Requires localization (the relay produces the cloud and TF).
 
+``nav_bt``          default | no_recovery   (default: default)
+    With planner:=nav2, selects bt_navigator's NavigateToPose tree. ``default``
+    is Humble's stock tree, unchanged. ``no_recovery`` has no recovery
+    behaviours: after a controller or planner failure the goal aborts instead
+    of spinning or backing up (go2_navigation/behavior_trees/
+    navigate_to_pose_no_recovery.xml).
+
 ``hardware_adapter`` dry_run | unitree_sport   (default: dry_run)
     The default is dry_run. Selecting a physical adapter is an explicit,
     deliberate act.
@@ -207,6 +214,7 @@ def _nav2_group(log_level):
                     "use_sim_time": LaunchConfiguration("use_sim_time"),
                     "log_level": log_level,
                     "controller_prefix": LaunchConfiguration("controller_prefix"),
+                    "nav_bt": LaunchConfiguration("nav_bt"),
                 }.items(),
             ),
             # The stamper is the ONLY sanctioned producer on the unstamped
@@ -303,9 +311,22 @@ def generate_launch_description() -> LaunchDescription:
             default_value="",
             description="Debug wrapper for Nav2 controller_server (e.g. gdb). Leave empty.",
         ),
+        DeclareLaunchArgument(
+            "nav_bt",
+            default_value="default",
+            description=(
+                "planner:=nav2 only. default (stock Humble tree with recoveries) or "
+                "no_recovery (no Spin/BackUp/Wait; a failed plan or follow aborts the goal)."
+            ),
+        ),
         DeclareLaunchArgument("dry_run_log_path", default_value=""),
         DeclareLaunchArgument("use_sim_time", default_value="false"),
         DeclareLaunchArgument("log_level", default_value="info"),
+        # Motion authority (MOSAIC deployments set these; empty topic = legacy, ungated).
+        # Declared and forwarded explicitly so the bridge parameters come from this file.
+        DeclareLaunchArgument("motion_authority_topic", default_value=""),
+        DeclareLaunchArgument("motion_authority_name", default_value="nav2"),
+        DeclareLaunchArgument("grant_timeout_s", default_value="0.3"),
     ]
 
     motion_authority = IncludeLaunchDescription(
@@ -314,6 +335,9 @@ def generate_launch_description() -> LaunchDescription:
             "hardware_adapter": LaunchConfiguration("hardware_adapter"),
             "dry_run_log_path": LaunchConfiguration("dry_run_log_path"),
             "log_level": log_level,
+            "motion_authority_topic": LaunchConfiguration("motion_authority_topic"),
+            "motion_authority_name": LaunchConfiguration("motion_authority_name"),
+            "grant_timeout_s": LaunchConfiguration("grant_timeout_s"),
             "require_localization": PythonExpression(
                 ["'false' if '", LaunchConfiguration("localization"), "' == 'none' else 'true'"]
             ),

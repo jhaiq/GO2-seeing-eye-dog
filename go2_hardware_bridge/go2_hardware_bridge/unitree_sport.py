@@ -205,14 +205,15 @@ class UnitreeSportBridge(HardwareBridgeInterface):
         return ok
 
     def emergency_stop(self) -> bool:
-        # Damp (1001) drops the joints to a damped state. It is the strongest
-        # stop reachable over the Sport API without cutting power.
+        # StopMove only. Damp (1001) drops the joints and the robot falls where
+        # it stands, so it is never sent from here (nor by _publish, which
+        # refuses it). The bridge reasserts StopMove at a bounded rate while
+        # its estop is latched.
         ok_stop = self._publish(API_ID_STOP_MOVE, None)
-        ok_damp = self._publish(API_ID_DAMP, None)
         with self._lock:
             self._health.state = BridgeState.STOPPED
-            self._health.detail = "emergency stop: StopMove + Damp issued"
-        return ok_stop and ok_damp
+            self._health.detail = "emergency stop: StopMove issued (no Damp)"
+        return ok_stop
 
     def health(self) -> BridgeHealth:
         with self._lock:
@@ -254,6 +255,15 @@ class UnitreeSportBridge(HardwareBridgeInterface):
     # ── Internals ─────────────────────────────────────────────────────
 
     def _publish(self, api_id: int, params: Optional[dict]) -> bool:
+        if api_id == API_ID_DAMP:
+            # Refused by construction: Damp is never transmitted.
+            with self._lock:
+                self._health.transmit_attempts += 1
+                self._health.transmit_failures += 1
+                self._health.last_transmit_ok = False
+                self._health.detail = "refused Damp (1001): never transmitted"
+            return False
+
         # DDS publish() on a fire-and-forget topic does not raise when nobody
         # is subscribed, so without this check send_velocity would return True
         # unconditionally and the bridge's transmit-failure counter could never

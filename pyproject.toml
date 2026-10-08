@@ -30,5 +30,7 @@ testpaths = [
 ]
 markers = [
   "ros: requires a live rclpy context and the generated go2_msgs types",
+  "slow: full-stack simulation case (minutes); opt-in, see the test module",
+  "timeout: per-test timeout (pytest-timeout, when installed)",
 ]
 
