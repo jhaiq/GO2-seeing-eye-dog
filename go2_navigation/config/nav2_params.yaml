@@ -89,7 +89,7 @@ bt_navigator_navigate_to_pose_rclcpp_node:
 controller_server:
   ros__parameters:
     use_sim_time: false
-    controller_frequency: 20.0
+    controller_frequency: 10.0 # 20.0 -> 10.0
     min_x_velocity_threshold: 0.001
     min_y_velocity_threshold: 0.5
     min_theta_velocity_threshold: 0.001
@@ -121,14 +121,14 @@ controller_server:
       rotate_to_heading_angular_vel: 0.5
       transform_tolerance: 0.3
       use_velocity_scaled_lookahead_dist: false
-      min_approach_linear_velocity: 0.08
+      min_approach_linear_velocity: 0.18
       approach_velocity_scaling_dist: 0.8
       use_collision_detection: true
-      max_allowed_time_to_collision_up_to_carrot: 1.5
+      max_allowed_time_to_collision_up_to_carrot: 0.75  #1.5 -> 0.75
       use_regulated_linear_velocity_scaling: true
       use_cost_regulated_linear_velocity_scaling: true
       regulated_linear_scaling_min_radius: 0.9
-      regulated_linear_scaling_min_speed: 0.10
+      regulated_linear_scaling_min_speed: 0.20
       use_rotate_to_heading: true
       allow_reversing: false
       rotate_to_heading_min_angle: 0.6
@@ -143,8 +143,8 @@ local_costmap:
   local_costmap:
     ros__parameters:
       use_sim_time: false
-      update_frequency: 5.0
-      publish_frequency: 2.0
+      update_frequency: 3.0
+      publish_frequency: 1.0
       global_frame: odom
       robot_base_frame: base_link
       rolling_window: true
@@ -239,13 +239,13 @@ planner_server:
       # unknown space; that is a NavFn A* defect, not a costmap problem.
       plugin: "nav2_smac_planner/SmacPlanner2D"
       tolerance: 0.3
-      downsample_costmap: false
-      downsampling_factor: 1
+      downsample_costmap: true
+      downsampling_factor: 2
       # Semantic goals are often in space the map has not observed yet.
       allow_unknown: true
-      max_iterations: 1000000
+      max_iterations: 200000
       max_on_approach_iterations: 1000
-      max_planning_time: 2.0
+      max_planning_time: 1.0
       cost_travel_multiplier: 2.0
       use_final_approach_orientation: false
       smoother:
@@ -301,7 +301,7 @@ waypoint_follower:
 velocity_smoother:
   ros__parameters:
     use_sim_time: false
-    smoothing_frequency: 20.0
+    smoothing_frequency: 10.0
     scale_velocities: false
     feedback: "OPEN_LOOP"
     # Inside the arbiter envelope (0.4 / 0.2 / 0.6); see header.
