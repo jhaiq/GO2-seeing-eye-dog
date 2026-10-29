@@ -100,38 +100,38 @@ controller_server:
 
     progress_checker:
       plugin: "nav2_controller::SimpleProgressChecker"
-      required_movement_radius: 0.25
+      required_movement_radius: 0.05   # 从 0.25 降到 0.1
       # A quadruped starting from a stand takes longer to get going than a
       # wheeled base; generous so a slow gait start is not a failure.
-      movement_time_allowance: 15.0
+      movement_time_allowance: 30.0   # 从 15 秒延长到 30 秒
 
     general_goal_checker:
       plugin: "nav2_controller::SimpleGoalChecker"
       stateful: true
-      xy_goal_tolerance: 0.25
-      yaw_goal_tolerance: 0.5
+      xy_goal_tolerance: 0.8   # 0.5 m is the default, but a quadruped can stand with its feet spread
+      yaw_goal_tolerance: 0.3   # Allow any final heading; position is the stand-off criterion.
 
     FollowPath:
       plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
       desired_linear_vel: 0.30
-      lookahead_dist: 0.6
+      lookahead_dist: 1.0
       min_lookahead_dist: 0.4
       max_lookahead_dist: 1.0
       lookahead_time: 1.5
       rotate_to_heading_angular_vel: 0.5
       transform_tolerance: 0.3
       use_velocity_scaled_lookahead_dist: false
-      min_approach_linear_velocity: 0.18
+      min_approach_linear_velocity: 0.22  # 从 0.15 提高到 0.22
       approach_velocity_scaling_dist: 0.8
       use_collision_detection: true
-      max_allowed_time_to_collision_up_to_carrot: 0.75  #1.5 -> 0.75
+      max_allowed_time_to_collision_up_to_carrot: 2.0  #1.5 -> 2.0
       use_regulated_linear_velocity_scaling: true
       use_cost_regulated_linear_velocity_scaling: true
       regulated_linear_scaling_min_radius: 0.9
       regulated_linear_scaling_min_speed: 0.20
       use_rotate_to_heading: true
       allow_reversing: false
-      rotate_to_heading_min_angle: 0.6
+      rotate_to_heading_min_angle: 0.3
       max_angular_accel: 0.8
       max_robot_pose_search_dist: 10.0
       use_interpolation: true
@@ -143,9 +143,10 @@ local_costmap:
   local_costmap:
     ros__parameters:
       use_sim_time: false
-      update_frequency: 3.0
+      update_frequency: 5.0
       publish_frequency: 1.0
       global_frame: odom
+      track_unknown_space: false
       robot_base_frame: base_link
       rolling_window: true
       width: 4
@@ -170,13 +171,16 @@ local_costmap:
           obstacle_max_range: 5.0
           obstacle_min_range: 0.0
           inf_is_valid: false
+          qos_overrides:
+            "/scan.subscription.reliability": "best_effort"
+            "/scan.subscription.durability": "volatile"
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         # Wide, soft inflation keeps planned paths centred in 1 m doorways;
         # 0.55 / 3.0 let paths hug frames and RPP aborted on "collision
         # ahead" when the footprint clipped them (closed-loop sim).
-        cost_scaling_factor: 2.5
-        inflation_radius: 0.70
+        cost_scaling_factor: 1.5
+        inflation_radius: 0.20
       always_send_full_costmap: true
 
 global_costmap:
@@ -187,6 +191,7 @@ global_costmap:
       publish_frequency: 1.0
       global_frame: map
       robot_base_frame: base_link
+      track_unknown_space: false
       resolution: 0.05
       transform_tolerance: 0.5
       # Fixed 40 x 40 m window in the map frame, built from live LiDAR
@@ -199,7 +204,6 @@ global_costmap:
       height: 40
       origin_x: -20.0
       origin_y: -20.0
-      track_unknown_space: true
       footprint: "[[0.38, 0.19], [0.38, -0.19], [-0.38, -0.19], [-0.38, 0.19]]"
       plugins: ["obstacle_layer", "inflation_layer"]
       obstacle_layer:
@@ -216,13 +220,16 @@ global_costmap:
           raytrace_min_range: 0.0
           obstacle_max_range: 5.0
           obstacle_min_range: 0.0
+          qos_overrides:
+            "/scan.subscription.reliability": "best_effort"
+            "/scan.subscription.durability": "volatile"
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         # Wide, soft inflation keeps planned paths centred in 1 m doorways;
         # 0.55 / 3.0 let paths hug frames and RPP aborted on "collision
         # ahead" when the footprint clipped them (closed-loop sim).
         cost_scaling_factor: 2.5
-        inflation_radius: 0.70
+        inflation_radius: 0.30
       # go2-semantic-nav's grounding node gates on receipt freshness of
       # /global_costmap/costmap; updates-only publishing would go stale.
       always_send_full_costmap: true

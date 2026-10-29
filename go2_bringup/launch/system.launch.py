@@ -87,6 +87,13 @@ def _perception_nodes(log_level):
             package="go2_audio_perception",
             executable="audio_perception_node",
             name="audio_perception_node",
+            parameters=[{
+                'audio_source': 'ros',
+                'sample_rate': 48000,
+                'n_mics': 1,
+                'chunk_duration_ms': 20,
+                'energy_threshold': 200.0,
+            }],
             output="screen",
             arguments=args,
             condition=condition,

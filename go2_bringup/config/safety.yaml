@@ -64,7 +64,7 @@ safety_arbiter_node:
     #       in DEGRADED (a slowdown-class hazard is asserted).
     # source: chosen so derated top speed (0.14 m/s) is a slow walk.
     # safe_default: yes | hardware_validated: false
-    degraded_scale: 0.35
+    degraded_scale: 0.8 # 0.35->0.8
 
     # ── Freshness and watchdogs (Invariants B and C) ──────────────────
     # unit: s | meaning: an individual candidate older than this is refused.

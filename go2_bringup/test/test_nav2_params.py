@@ -91,6 +91,12 @@ def test_costmaps_publish_full_maps_for_semantic_freshness_gate():
         assert PARAMS[cm][cm]["ros__parameters"]["always_send_full_costmap"] is True
 
 
+def test_semantic_goal_checker_does_not_require_final_heading():
+    ctrl = PARAMS["controller_server"]["ros__parameters"]
+    goal_checker = ctrl["general_goal_checker"]
+    assert goal_checker["yaw_goal_tolerance"] >= 0.3
+
+
 def test_no_sim_time_on_hardware_config():
     for name, block in PARAMS.items():
         params = block.get("ros__parameters") or block.get(name, {}).get("ros__parameters", {})

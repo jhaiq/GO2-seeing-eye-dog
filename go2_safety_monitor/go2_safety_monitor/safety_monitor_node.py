@@ -25,8 +25,8 @@ from go2_msgs.msg import SafetyAlert
 ROBOT_WIDTH_M = 0.35          # GO2 shoulder width
 MIN_PASSAGE_WIDTH_M = 0.55    # Minimum safe passage (robot + clearance)
 MAX_STEP_HEIGHT_M = 0.08      # Maximum safe step height for the GO2
-STOP_DISTANCE_M = 0.4         # Emergency stop distance
-SLOWDOWN_DISTANCE_M = 1.0     # Begin slowing at this distance
+STOP_DISTANCE_M = 0.3         # Emergency stop distance
+SLOWDOWN_DISTANCE_M = 0.6     # Begin slowing at this distance
 
 
 class SafetyMonitorNode(Node):
