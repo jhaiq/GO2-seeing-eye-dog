@@ -16,11 +16,11 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-if [[ -f /opt/ros/humble/setup.bash ]]; then
+if [[ -f /opt/agiros/loong/setup.bash ]]; then
   # shellcheck disable=SC1091
-  source /opt/ros/humble/setup.bash
+  source /opt/agiros/loong/setup.bash
 else
-  echo "[run] ROS 2 Humble setup not found under /opt/ros/humble." >&2
+  echo "[run] AGIROS loong setup not found under /opt/agiros/loong." >&2
   exit 1
 fi
 
@@ -59,7 +59,7 @@ fi
 
 echo "[run] perception=${PERCEPTION} planner=${PLANNER} adapter=${HARDWARE_ADAPTER}"
 
-exec ros2 launch go2_bringup system.launch.py \
+exec agiros launch go2_bringup system.launch.py \
   perception:="${PERCEPTION}" \
   planner:="${PLANNER}" \
   hardware_adapter:="${HARDWARE_ADAPTER}" \

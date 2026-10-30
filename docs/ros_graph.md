@@ -111,11 +111,11 @@ see `docs/runtime_graph_audit.md`.
 ## Inspecting a running system
 
 ```bash
-ros2 topic echo /go2/safety/status        # what the arbiter is deciding, and why
-ros2 topic echo /go2/bridge/status        # what reached the actuator
-ros2 topic echo /go2/grounding_status     # what the interaction is doing
-ros2 topic hz   /cmd_vel_safe             # the arbiter should publish at 20 Hz always
-ros2 topic info /cmd_vel_safe --verbose   # MUST show exactly one publisher
+agiros topic echo /go2/safety/status        # what the arbiter is deciding, and why
+agiros topic echo /go2/bridge/status        # what reached the actuator
+agiros topic echo /go2/grounding_status     # what the interaction is doing
+agiros topic hz   /cmd_vel_safe             # the arbiter should publish at 20 Hz always
+agiros topic info /cmd_vel_safe --verbose   # MUST show exactly one publisher
 ```
 
 That last command is the quickest check that the architecture is intact. More

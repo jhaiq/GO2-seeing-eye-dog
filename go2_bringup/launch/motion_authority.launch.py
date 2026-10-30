@@ -19,7 +19,7 @@ Two properties are enforced structurally rather than by convention:
 
 * The bridge subscribes to ``cmd_vel_safe`` and nothing else, and that topic
   carries a custom message type that no planner or controller can publish.
-  A mis-remapped Nav2, a stray ``ros2 topic pub``, and a teleop joystick all
+  A mis-remapped Nav2, a stray ``agiros topic pub``, and a teleop joystick all
   fail to connect rather than silently taking control.
 
 * The candidate topic and the safe topic are different topics with different

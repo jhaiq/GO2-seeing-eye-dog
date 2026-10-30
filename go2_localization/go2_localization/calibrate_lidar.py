@@ -1,7 +1,7 @@
 """
 calibrate_lidar: estimate base_link -> utlidar_lidar from a rosbag.
 
-    ros2 run go2_localization calibrate_lidar <bag> [--cloud /utlidar/cloud]
+    agiros run go2_localization calibrate_lidar <bag> [--cloud /utlidar/cloud]
         [--odom /utlidar/robot_odom] [--base-height 0.32]
 
 Record the bag STANDING (not sitting: the field notes measured a 23 deg roll

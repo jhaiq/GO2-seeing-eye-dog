@@ -18,10 +18,10 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 PARAMS = yaml.safe_load((ROOT / "go2_navigation/config/nav2_params.yaml").read_text())
 SAFETY = yaml.safe_load((ROOT / "go2_bringup/config/safety.yaml").read_text())
-ROS_PREFIX = Path(os.environ.get("ROS_PREFIX", "/opt/ros/humble"))
+ROS_PREFIX = Path(os.environ.get("ROS_PREFIX", "/opt/agiros/loong"))
 
-requires_humble = pytest.mark.skipif(
-    not (ROS_PREFIX / "share/nav2_bt_navigator").is_dir(), reason="Nav2 Humble not installed"
+requires_nav2 = pytest.mark.skipif(
+    not (ROS_PREFIX / "share/nav2_bt_navigator").is_dir(), reason="Nav2 not installed under ROS_PREFIX"
 )
 
 
@@ -44,14 +44,14 @@ def _registered_plugin_classes() -> set[str]:
     return classes
 
 
-@requires_humble
+@requires_nav2
 def test_every_bt_plugin_library_exists():
     libs = PARAMS["bt_navigator"]["ros__parameters"]["plugin_lib_names"]
     missing = [lib for lib in libs if not (ROS_PREFIX / "lib" / f"lib{lib}.so").exists()]
     assert not missing, f"BT plugin libraries absent from Humble: {missing}"
 
 
-@requires_humble
+@requires_nav2
 def test_every_server_plugin_is_registered():
     registered = _registered_plugin_classes()
     wanted = []

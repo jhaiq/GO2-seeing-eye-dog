@@ -1,7 +1,7 @@
 """
 system.launch.py, the canonical entrypoint for the GO2 seeing-eye-dog stack.
 
-    ros2 launch go2_bringup system.launch.py
+    agiros launch go2_bringup system.launch.py
 
 This replaces the previous collection of launch files that had to be started
 by hand in separate terminals and that, between them, never actually connected

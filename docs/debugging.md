@@ -6,7 +6,7 @@ Almost every "it does nothing" report resolves here. The arbiter says why, in
 machine-readable form:
 
 ```bash
-ros2 topic echo /go2/safety/status
+agiros topic echo /go2/safety/status
 ```
 
 | `reason_codes` | Meaning | Fix |
@@ -18,13 +18,13 @@ ros2 topic echo /go2/safety/status
 | `INVALID_COMMAND` | NaN, infinity, or the wrong frame | Check the candidate's `header.frame_id` matches `expected_frame_id` |
 | `HAZARD_STOP` | A stop-class hazard is asserted | Look at `/go2/safety_alert`. Also fires for an **unrecognised** alert type, which is deliberate. |
 | `NO_LOCALIZATION` | Localization required and absent | Only when `require_localization: true`, which is false by default because nothing publishes `/go2/localization_valid` yet |
-| `EMERGENCY_STOP` | The latch is engaged | `ros2 service call /safety_arbiter_node/release_estop std_srvs/srv/Trigger`. Nothing else clears it. |
+| `EMERGENCY_STOP` | The latch is engaged | `agiros service call /safety_arbiter_node/release_estop std_srvs/srv/Trigger`. Nothing else clears it. |
 | `SPEED_LIMIT` / `ACCEL_LIMIT` | The command was clamped or rate-limited | Not a fault. Limits are in `config/safety.yaml`. |
 
 ## Second question: what actually reached the actuator?
 
 ```bash
-ros2 topic echo /go2/bridge/status
+agiros topic echo /go2/bridge/status
 ```
 
 `last_reject_reasons` explains anything the bridge refused independently of the
@@ -35,7 +35,7 @@ arbiter:
 * `COMMAND_EXPIRED`, the command's `valid_until` had passed on arrival.
   Usually clock skew between the two processes.
 * `AUTHORITY_MISMATCH`, a second arbiter is publishing. Check
-  `ros2 topic info /cmd_vel_safe --verbose`; there must be exactly one publisher.
+  `agiros topic info /cmd_vel_safe --verbose`; there must be exactly one publisher.
 * `SEQUENCE_REGRESSION`, replayed or reordered commands. A bag being played
   back into a live graph will do this.
 * `SPEED_LIMIT` at the bridge, the arbiter emitted an over-limit command,
@@ -45,7 +45,7 @@ arbiter:
 ## Third question: why was the caller not confirmed?
 
 ```bash
-ros2 topic echo /go2/grounding_status
+agiros topic echo /go2/grounding_status
 ```
 
 This publishes on a timer whether or not detections are arriving, so "nothing
@@ -82,7 +82,7 @@ To test: stand at a known angle, watch `bearing_delta_deg` in
 **Two `go2_msgs` installations.** If a previously-built workspace is on
 `AMENT_PREFIX_PATH`, it can shadow the one you just built, and you will be
 running code that is not in your tree. `scripts/reproduce.sh` unsets the
-overlay for exactly this reason. Check with `ros2 pkg prefix go2_msgs`.
+overlay for exactly this reason. Check with `agiros pkg prefix go2_msgs`.
 
 **Tests passing for the wrong reason.** If another ROS graph is live on your
 domain, a test asserting "no command reached the actuator" can pass because

@@ -12,7 +12,7 @@ Arguments
 ``slam_mode``   mapping | localization   (default: mapping)
     ``mapping`` builds a map while navigating. ``localization`` loads a
     serialized pose graph (``map_file``, without extension) saved with
-    ``ros2 service call /slam_toolbox/serialize_map ...``.
+    ``agiros service call /slam_toolbox/serialize_map ...``.
 ``map_file``    pose-graph path for localization mode.
 ``cloud_in_topic``  /utlidar/cloud_deskewed (default) or /utlidar/cloud.
 ``publish_lidar_extrinsic``  true only for the raw sensor-frame cloud.

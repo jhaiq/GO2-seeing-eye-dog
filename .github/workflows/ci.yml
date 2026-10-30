@@ -44,29 +44,32 @@ jobs:
         run: ./scripts/test.sh
 
   build:
-    name: Build (ROS 2 Humble)
+    name: Build (AGIROS loong)
     runs-on: ubuntu-22.04
     container:
-      image: ros:humble-ros-base
+      # AGIROS loong deployment image (colcon/agirosdep preinstalled). It is
+      # hosted on the AGIROS registry; if a runner cannot reach it, build the
+      # equivalent environment from docker/agiros-loong/Dockerfile and push it
+      # to a registry the runner can pull.
+      image: docker.agiros.org.cn/sim/agiros-loong-ubuntu-unitree-sim:2606
     steps:
       - uses: actions/checkout@v5
       - name: Install dependencies
         run: |
-          . /opt/ros/humble/setup.sh
+          . /opt/agiros/loong/setup.sh
           apt-get update -q
           apt-get install -y \
-            python3-colcon-common-extensions \
             python3-pip \
-            python3-rosdep \
             portaudio19-dev
-          rosdep init || true
-          rosdep update
-          rosdep install --from-paths . --ignore-src -r -y --rosdistro humble
+          # AGIROS ships agirosdep instead of rosdep; the image preconfigures
+          # its package index, so there is no init step.
+          agirosdep update
+          agirosdep install --from-paths . --ignore-src -r -y --rosdistro loong
           # colcon-core needs setuptools<80; unpinned ultralytics/torch pull in 83+.
           pip install "setuptools<80" "packaging>=23.2" ultralytics opencv-python-headless pyaudio scipy numpy
       - name: Build msgs first, then packages
         run: |
-          . /opt/ros/humble/setup.sh
+          . /opt/agiros/loong/setup.sh
           colcon build --symlink-install --packages-select go2_msgs
           . install/setup.sh
           colcon build --symlink-install --packages-select \
@@ -77,7 +80,7 @@ jobs:
 
       - name: Run the full suite, including the safety-authority proofs
         run: |
-          . /opt/ros/humble/setup.sh
+          . /opt/agiros/loong/setup.sh
           . install/setup.sh
           # An isolated domain: these tests assert on what does and does not
           # reach an actuator, so a foreign ROS graph could make them pass or

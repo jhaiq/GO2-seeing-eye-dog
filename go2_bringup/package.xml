@@ -8,7 +8,6 @@
   <maintainer email="yusuf.a.guenena@gmail.com">Yusuf Guenena</maintainer>
   <license>MIT</license>
 
-  <buildtool_depend>ament_python</buildtool_depend>
 
   <exec_depend>go2_audio_perception</exec_depend>
   <exec_depend>go2_perception</exec_depend>

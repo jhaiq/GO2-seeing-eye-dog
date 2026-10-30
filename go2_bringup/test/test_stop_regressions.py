@@ -1,11 +1,11 @@
 """
 Stop and shutdown regressions for the full Nav2 stack, run against go2_sim.
 
-    source /opt/ros/humble/setup.bash
+    source /opt/agiros/loong/setup.bash
     source <unitree_ros2>/cyclonedds_ws/install/local_setup.bash
     source install/setup.bash
     export ROS_LOCALHOST_ONLY=1 RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-    export CYCLONEDDS_URI=file://$(ros2 pkg prefix go2_sim)/share/go2_sim/config/cyclonedds_localhost.xml
+    export CYCLONEDDS_URI=file://$(agiros pkg prefix go2_sim)/share/go2_sim/config/cyclonedds_localhost.xml
     GO2_STOP_REG=1 STOP_REG_DOMAIN_BASE=90 python3 -m pytest -p no:cacheprovider \
         go2_bringup/test/test_stop_regressions.py -v
 
@@ -351,18 +351,18 @@ def start_run(rclpy, log_dir: Path, interactive: bool, nav_bt: Optional[str] = N
     env = dict(os.environ, ROS_DOMAIN_ID=str(domain), ROS_LOCALHOST_ONLY="1")
     log_dir.mkdir(parents=True, exist_ok=True)
     sim = subprocess.Popen(
-        ["ros2", "launch", "go2_sim", "sim.launch.py"], env=env,
+        ["agiros", "launch", "go2_sim", "sim.launch.py"], env=env,
         stdin=subprocess.DEVNULL, stdout=open(log_dir / "sim.log", "w"),
         stderr=subprocess.STDOUT, start_new_session=True)
     master = None
     stdin = subprocess.DEVNULL
     if interactive:
-        # A terminal on stdin makes `ros2 launch` interactive: on Ctrl-C it does
+        # A terminal on stdin makes `agiros launch` interactive: on Ctrl-C it does
         # not re-send SIGINT, because the terminal already sent it to the group.
         master, slave = pty.openpty()
         stdin = slave
     stack = subprocess.Popen(
-        ["ros2", "launch", "go2_bringup", "system.launch.py", "perception:=none",
+        ["agiros", "launch", "go2_bringup", "system.launch.py", "perception:=none",
          "planner:=nav2", "localization:=slam_mapping", "lidar_safety:=true",
          "hardware_adapter:=unitree_sport", "cloud_in_topic:=/utlidar/cloud_deskewed"]
         + ([f"nav_bt:={nav_bt}"] if nav_bt else []),

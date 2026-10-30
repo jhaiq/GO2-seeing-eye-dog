@@ -1,22 +1,22 @@
 FROM nvcr.io/nvidia/nemo:26.02
 
-# Install ROS 2 Humble
+# Install AGIROS loong. The AGIROS deb repo and its GPG key URL follow the
+# official image build args (repo.agiros.org.cn, ubuntu2204lts channel).
+# NOTE: the nemo base must be Ubuntu 22.04 (jammy) for these debs to resolve;
+# otherwise build the loong dev environment from docker/agiros-loong/Dockerfile.
 RUN apt-get update && apt-get install -y locales && \
     locale-gen en_US en_US.UTF-8 && \
     update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
 ENV LANG=en_US.UTF-8
 
 RUN apt-get update && apt-get install -y curl gnupg2 lsb-release && \
-    curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(lsb_release -cs) main" | tee /etc/list.d/ros2.list > /dev/null
+    curl -fsSL http://repo.agiros.org.cn/debrepo/agiros/ubuntu2204lts/2606/agiros.gpg -o /usr/share/keyrings/agiros.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/agiros.gpg] http://repo.agiros.org.cn/debrepo/agiros/ubuntu2204lts/2606 jammy main" | tee /etc/apt/sources.list.d/agiros.list > /dev/null
 
 RUN apt-get update && apt-get install -y \
-    ros-humble-ros-base \
+    agiros-loong-ros-base \
     python3-colcon-common-extensions \
     && rm -rf /var/lib/apt/lists/*
-
-# Install additional Python deps
-RUN pip install rclpy
 
 # Set up a non-root user matching the host UID/GID (override at build time
 # with --build-arg USERNAME=<you> --build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g))
@@ -31,7 +31,7 @@ RUN groupadd --gid ${USER_GID} ${USERNAME} || true && \
 USER ${USERNAME}
 WORKDIR /home/${USERNAME}
 
-# Source ROS 2 by default
-RUN echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
+# Source AGIROS loong by default
+RUN echo "source /opt/agiros/loong/setup.bash" >> ~/.bashrc
 
 CMD ["/bin/bash"]

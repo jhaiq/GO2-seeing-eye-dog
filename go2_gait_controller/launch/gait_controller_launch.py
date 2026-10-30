@@ -2,8 +2,8 @@
 GO2 Gait Controller — Launch File
 
 Usage:
-  ros2 launch go2_gait_controller gait_controller_launch.py
-  ros2 launch go2_gait_controller gait_controller_launch.py use_sim:=true
+  agiros launch go2_gait_controller gait_controller_launch.py
+  agiros launch go2_gait_controller gait_controller_launch.py use_sim:=true
 """
 
 from launch import LaunchDescription

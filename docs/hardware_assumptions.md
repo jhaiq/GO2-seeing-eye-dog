@@ -121,8 +121,8 @@ partitioned graph presents as `BRIDGE_WATCHDOG_TIMEOUT`, which stops the robot.
 1. A physical emergency stop within reach. The software e-stop is not a
    substitute for cutting power.
 2. Space in every direction: the staged controller does not avoid obstacles.
-3. `ros2 topic echo /go2/bridge/status` open, confirming `dry_run: false` and
+3. `agiros topic echo /go2/bridge/status` open, confirming `dry_run: false` and
    watching `last_transmitted`.
-4. `ros2 topic info /cmd_vel_safe --verbose` showing exactly one publisher.
+4. `agiros topic info /cmd_vel_safe --verbose` showing exactly one publisher.
 5. Limits in `safety.yaml` reduced further than the defaults for the first run,
    not raised.

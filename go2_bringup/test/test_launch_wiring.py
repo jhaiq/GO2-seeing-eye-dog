@@ -164,16 +164,32 @@ class TestSystemLaunch:
         """
         Every entrypoint must route actuation through the one place that
         defines it, rather than assembling its own bridge wiring.
+
+        The routing is asserted on the wiring itself: the include source's
+        ``location`` renders differently across launch generations (on AGIROS
+        loong it is collapsed to an object-repr string before the test can
+        read the path), so the dynamic path text is not portable. The live
+        half of this guarantee is covered by test_authority_launch_runtime.py,
+        which launches the graph and reads the bridge's diagnostics.
         """
+        import re
+
         from launch.actions import IncludeLaunchDescription
 
         module = load_module(LAUNCH_DIR / "system.launch.py")
         description = module.generate_launch_description()
-        includes = [
-            e for e in description.entities if isinstance(e, IncludeLaunchDescription)
-        ]
-        sources = " ".join(str(i.launch_description_source.location) for i in includes)
-        assert "motion_authority" in sources
+        assert any(isinstance(e, IncludeLaunchDescription) for e in description.entities)
+        text = (LAUNCH_DIR / "system.launch.py").read_text()
+        # The full chain: the path constant -> the variable holding it ->
+        # that variable being what system.launch.py actually includes.
+        assert "motion_authority.launch.py" in text
+        assert re.search(
+            r"from_motion_authority\s*=\s*PathJoinSubstitution\(\s*\[[^\]]*motion_authority\.launch\.py",
+            text, re.S,
+        )
+        assert re.search(
+            r"PythonLaunchDescriptionSource\(\s*\[?\s*from_motion_authority\b", text, re.S
+        )
 
     def test_no_launch_file_starts_a_bridge_outside_motion_authority(self):
         """

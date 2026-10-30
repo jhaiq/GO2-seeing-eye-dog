@@ -1,7 +1,7 @@
 """
 system_dry_run.launch.py, the full decision stack with no hardware at all.
 
-    ros2 launch go2_bringup system_dry_run.launch.py
+    agiros launch go2_bringup system_dry_run.launch.py
 
 Identical to ``system.launch.py`` except that hardware-dependent perception is
 disabled and the actuation adapter is the recording dry-run bridge. Everything
@@ -11,7 +11,7 @@ That is the point: this variant exercises the real decision path, not a
 simulation of it.
 
 Perception inputs must be supplied externally (a bag, a test fixture, or
-``ros2 topic pub``) on:
+``agiros topic pub``) on:
 
     /go2/detected_humans     go2_msgs/DetectedHumanArray
     /go2/audio/bearing_deg   std_msgs/Float32

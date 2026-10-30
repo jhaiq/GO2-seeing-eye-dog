@@ -25,7 +25,7 @@ safety_arbiter_node       the only producer of /cmd_vel_safe
 hardware_bridge_node      dry_run | unitree_sport (Move 1008 / StopMove 1003)
 ```
 
-One entrypoint: `ros2 launch go2_bringup system.launch.py` with
+One entrypoint: `agiros launch go2_bringup system.launch.py` with
 `localization:=slam_mapping|slam_localization`, `lidar_safety:=true`,
 `planner:=nav2|staged_nav`, `hardware_adapter:=dry_run|unitree_sport`.
 go2-semantic-nav wraps it in `deploy.launch.py`.
@@ -51,7 +51,7 @@ evidence.
 
 1. `./scripts/reproduce.sh` passes on the exact revision you will deploy.
    Record the revision.
-2. `ros2 run go2_sim closed_loop_trials --trials 3` passes.
+2. `agiros run go2_sim closed_loop_trials --trials 3` passes.
 3. Stage for the payload (no internet in the lab): Nav2, slam_toolbox,
    pointcloud_to_laserscan as aarch64 debs, this workspace built for aarch64,
    unitree_ros2 messages. The preflight lists anything missing.
@@ -69,14 +69,14 @@ service is subscribed, and that no other motion stack is publishing.
 
 If `/utlidar/cloud_deskewed` is missing or not in `odom`: record a standing
 bag (5 s still, then walk straight 1.5 m on the remote at low speed) and run
-`ros2 run go2_localization calibrate_lidar <bag>`. It prints a `relay.yaml`
+`agiros run go2_localization calibrate_lidar <bag>`. It prints a `relay.yaml`
 snippet. It refuses to report a yaw it could not measure. Then launch with
 `cloud_in_topic:=/utlidar/cloud publish_lidar_extrinsic:=true`.
 
 ## Stage 2: sensing only, motors untouched
 
 ```bash
-ros2 launch go2_bringup system.launch.py perception:=none planner:=nav2 \
+agiros launch go2_bringup system.launch.py perception:=none planner:=nav2 \
   localization:=slam_mapping lidar_safety:=true hardware_adapter:=dry_run
 ```
 
@@ -101,7 +101,7 @@ envelope, directionally sensible, and stop when a hazard is placed ahead.
 Only after stages 1-3 pass in the same session.
 
 ```bash
-ros2 launch go2_bringup system.launch.py perception:=none planner:=nav2 \
+agiros launch go2_bringup system.launch.py perception:=none planner:=nav2 \
   localization:=slam_mapping lidar_safety:=true hardware_adapter:=unitree_sport
 ```
 
@@ -111,7 +111,7 @@ ros2 launch go2_bringup system.launch.py perception:=none planner:=nav2 \
 * Measure and record: stopping distance from 0.3 m/s under StopMove, arrival
   error, time to goal, arbiter interventions (`/go2/safety/status`).
 
-Abort immediately (remote stop, then `ros2 service call
+Abort immediately (remote stop, then `agiros service call
 /hardware_bridge_node/emergency_stop std_srvs/srv/Trigger`) on: motion not
 matching the command, motion after a StopMove, a LiDAR hazard that does not
 stop forward motion, any `TRANSMIT_FAILED` or `BRIDGE_WATCHDOG_TIMEOUT`.
@@ -126,7 +126,7 @@ Run the whole graph with `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp` (the robot
 speaks CycloneDDS; the preflight fails otherwise).
 
 For single-host sim on loopback, use
-`CYCLONEDDS_URI=file://$(ros2 pkg prefix go2_sim)/share/go2_sim/config/cyclonedds_localhost.xml`
+`CYCLONEDDS_URI=file://$(agiros pkg prefix go2_sim)/share/go2_sim/config/cyclonedds_localhost.xml`
 (loopback cannot multicast and the default participant limit is too small
 for this graph). Never use that file on the robot.
 

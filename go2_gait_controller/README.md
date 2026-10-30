@@ -110,17 +110,17 @@ source install/setup.bash
 
 ```bash
 # Launch the gait controller
-ros2 launch go2_gait_controller gait_controller_launch.py
+agiros launch go2_gait_controller gait_controller_launch.py
 
 # Activate the lifecycle node
-ros2 lifecycle set /go2_gait_controller configure
-ros2 lifecycle set /go2_gait_controller activate
+agiros lifecycle set /go2_gait_controller configure
+agiros lifecycle set /go2_gait_controller activate
 
 # Send gait commands
-ros2 topic pub /go2/gait_command std_msgs/msg/String "data: 'stand'" --once
-ros2 topic pub /go2/gait_command std_msgs/msg/String "data: 'walk'"  --once
-ros2 topic pub /go2/gait_command std_msgs/msg/String "data: 'trot'"  --once
-ros2 topic pub /go2/gait_command std_msgs/msg/String "data: 'idle'"  --once
+agiros topic pub /go2/gait_command std_msgs/msg/String "data: 'stand'" --once
+agiros topic pub /go2/gait_command std_msgs/msg/String "data: 'walk'"  --once
+agiros topic pub /go2/gait_command std_msgs/msg/String "data: 'trot'"  --once
+agiros topic pub /go2/gait_command std_msgs/msg/String "data: 'idle'"  --once
 ```
 
 ---
@@ -145,9 +145,9 @@ Gait parameters (stride length, height, frequency) are in the header:
 
 ```bash
 sudo apt install \
-  ros-humble-rclcpp \
-  ros-humble-rclcpp-lifecycle \
-  ros-humble-trajectory-msgs \
-  ros-humble-sensor-msgs \
-  ros-humble-geometry-msgs
+  agiros-loong-rclcpp \
+  agiros-loong-rclcpp-lifecycle \
+  agiros-loong-trajectory-msgs \
+  agiros-loong-sensor-msgs \
+  agiros-loong-geometry-msgs
 ```

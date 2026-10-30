@@ -16,7 +16,7 @@ fail() { printf '  FAIL  %s\n' "$1"; fails=$((fails + 1)); }
 warn() { printf '  WARN  %s\n' "$1"; }
 
 hz() {  # hz <topic> <seconds>: average rate or 0
-  timeout "$2" ros2 topic hz "$1" 2>/dev/null | awk '/average rate/ {r=$3} END {print (r=="" ? 0 : r)}'
+  timeout "$2" agiros topic hz "$1" 2>/dev/null | awk '/average rate/ {r=$3} END {print (r=="" ? 0 : r)}'
 }
 
 echo "== environment"
@@ -46,26 +46,26 @@ echo "== packages"
 for pkg in nav2_bringup nav2_regulated_pure_pursuit_controller nav2_navfn_planner slam_toolbox \
            pointcloud_to_laserscan unitree_api go2_msgs go2_localization go2_lidar_safety \
            go2_safety_arbiter go2_hardware_bridge go2_bringup; do
-  ros2 pkg prefix "$pkg" >/dev/null 2>&1 && pass "$pkg" || fail "$pkg not found (lab has no internet: stage it before the session)"
+  agiros pkg prefix "$pkg" >/dev/null 2>&1 && pass "$pkg" || fail "$pkg not found (lab has no internet: stage it before the session)"
 done
 
 echo "== robot data flow (topic presence is NOT enough; rates are measured)"
-ros2 daemon stop >/dev/null 2>&1
+agiros daemon stop >/dev/null 2>&1
 r=$(hz /utlidar/robot_odom 6); awk "BEGIN{exit !($r > 100)}" && pass "/utlidar/robot_odom ${r} Hz" || fail "/utlidar/robot_odom ${r} Hz (expect ~150)"
 r=$(hz /utlidar/cloud 6); awk "BEGIN{exit !($r > 10)}" && pass "/utlidar/cloud ${r} Hz" || fail "/utlidar/cloud ${r} Hz (expect ~15)"
 r=$(hz /utlidar/cloud_deskewed 6)
 if awk "BEGIN{exit !($r > 10)}"; then
-  frame=$(timeout 5 ros2 topic echo --once /utlidar/cloud_deskewed --field header.frame_id 2>/dev/null | head -1)
+  frame=$(timeout 5 agiros topic echo --once /utlidar/cloud_deskewed --field header.frame_id 2>/dev/null | head -1)
   if [ "$frame" = "odom" ]; then pass "/utlidar/cloud_deskewed ${r} Hz in 'odom' (default relay input is valid)"
   else fail "/utlidar/cloud_deskewed frame is '$frame', not odom: use cloud_in_topic:=/utlidar/cloud with a calibrated extrinsic"; fi
 else
   fail "/utlidar/cloud_deskewed ${r} Hz: use cloud_in_topic:=/utlidar/cloud publish_lidar_extrinsic:=true (run calibrate_lidar first)"
 fi
-subs=$(ros2 topic info /api/sport/request 2>/dev/null | awk '/Subscription count/ {print $3}')
+subs=$(agiros topic info /api/sport/request 2>/dev/null | awk '/Subscription count/ {print $3}')
 [ "${subs:-0}" -ge 1 ] && pass "/api/sport/request has ${subs} subscriber(s) (sport service up)" || fail "/api/sport/request has no subscriber: sport service not running"
-tfpubs=$(ros2 topic info /tf 2>/dev/null | awk '/Publisher count/ {print $3}')
+tfpubs=$(agiros topic info /tf 2>/dev/null | awk '/Publisher count/ {print $3}')
 [ "${tfpubs:-0}" -eq 0 ] && pass "no foreign /tf publishers before bring-up" || warn "/tf already has ${tfpubs} publisher(s); a second odom->base_link source would fight the relay"
-cmdpubs=$(ros2 topic info /cmd_vel_safe 2>/dev/null | awk '/Publisher count/ {print $3}')
+cmdpubs=$(agiros topic info /cmd_vel_safe 2>/dev/null | awk '/Publisher count/ {print $3}')
 [ "${cmdpubs:-0}" -eq 0 ] && pass "no /cmd_vel_safe publisher before bring-up" || fail "/cmd_vel_safe already has ${cmdpubs} publisher(s): another motion stack is running"
 
 echo "== robot clock (the relay corrects it; this records the evidence)"

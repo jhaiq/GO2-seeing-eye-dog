@@ -21,7 +21,7 @@ Why the output type is not Twist
 --------------------------------
 ``SafeVelocityCommand`` is a custom type.  ROS 2 will not connect a
 ``geometry_msgs/Twist`` publisher to a ``SafeVelocityCommand`` subscriber, so
-a controller, a teleop node or an ad-hoc ``ros2 topic pub`` physically cannot
+a controller, a teleop node or an ad-hoc ``agiros topic pub`` physically cannot
 deliver a message to the hardware bridge.  The type system, not developer
 discipline, enforces Invariant A.
 

@@ -18,8 +18,8 @@ because launching the graph it described was worse than launching nothing:
 
 Use instead::
 
-    ros2 launch go2_bringup system.launch.py                 # real perception
-    ros2 launch go2_bringup system_dry_run.launch.py         # no hardware
+    agiros launch go2_bringup system.launch.py                 # real perception
+    agiros launch go2_bringup system_dry_run.launch.py         # no hardware
 
 See ``docs/runtime_graph_audit.md`` for the full account of what this launch
 file actually did, and ``docs/target_runtime_architecture.md`` for what
@@ -36,7 +36,7 @@ def generate_launch_description() -> LaunchDescription:
         "It started a Nav2 stack that could not complete lifecycle bring-up, "
         "and no node in its graph consumed /cmd_vel, so no command could reach "
         "the robot.\n"
-        "Use:  ros2 launch go2_bringup system.launch.py\n"
-        "or:   ros2 launch go2_bringup system_dry_run.launch.py\n"
+        "Use:  agiros launch go2_bringup system.launch.py\n"
+        "or:   agiros launch go2_bringup system_dry_run.launch.py\n"
         "See docs/target_runtime_architecture.md."
     )

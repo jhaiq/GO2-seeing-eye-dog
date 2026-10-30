@@ -23,12 +23,12 @@ set -eo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
-ROS_DISTRO_NAME="${ROS_DISTRO:-humble}"
-ROS_SETUP="/opt/ros/${ROS_DISTRO_NAME}/setup.bash"
+ROS_DISTRO_NAME="${ROS_DISTRO:-loong}"
+ROS_SETUP="/opt/agiros/${ROS_DISTRO_NAME}/setup.bash"
 
 if [[ ! -f "$ROS_SETUP" ]]; then
-  echo "ERROR: no ROS 2 at $ROS_SETUP" >&2
-  echo "Set ROS_DISTRO, or install ROS 2 Humble." >&2
+  echo "ERROR: no AGIROS installation at $ROS_SETUP" >&2
+  echo "Set ROS_DISTRO=loong, or install AGIROS loong." >&2
   exit 1
 fi
 
@@ -56,7 +56,7 @@ source "$ROS_SETUP"
 
 # ── Refuse to run against a populated graph ─────────────────────────────────
 echo "── Checking the domain is empty ─────────────────────────────"
-EXISTING="$(timeout 8 ros2 node list 2>/dev/null | grep -v '^$' | grep -v '_ros2cli' || true)"
+EXISTING="$(timeout 8 agiros node list 2>/dev/null | grep -v '^$' | grep -v '_ros2cli' || true)"
 if [[ -n "$EXISTING" ]]; then
   echo "ERROR: ROS nodes already running on domain $ROS_DOMAIN_ID:" >&2
   echo "$EXISTING" >&2
@@ -103,7 +103,7 @@ for exe in \
 do
   # shellcheck disable=SC2086
   set -- $exe
-  if ros2 pkg executables "$1" 2>/dev/null | grep -q "$2"; then
+  if agiros pkg executables "$1" 2>/dev/null | grep -q "$2"; then
     echo "  OK   $1 $2"
   else
     echo "  FAIL $1 $2 is not installed as a runnable executable" >&2
@@ -113,7 +113,7 @@ done
 echo
 
 echo "── Verifying launch files are installed ─────────────────────"
-SHARE="$(ros2 pkg prefix go2_bringup)/share/go2_bringup"
+SHARE="$(agiros pkg prefix go2_bringup)/share/go2_bringup"
 for f in launch/system.launch.py launch/system_dry_run.launch.py \
          launch/motion_authority.launch.py \
          config/safety.yaml config/fusion.yaml config/navigation.yaml; do

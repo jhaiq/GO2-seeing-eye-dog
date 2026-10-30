@@ -318,7 +318,7 @@ class TestNoBypass:
         publisher at all, because the topic already exists with an
         incompatible type.
 
-        So a controller, teleop node or ``ros2 topic pub`` aimed at
+        So a controller, teleop node or ``agiros topic pub`` aimed at
         ``cmd_vel_safe`` fails loudly at construction rather than publishing
         into the void. The separation is enforced by the type system and the
         RMW, not by naming discipline.
@@ -409,7 +409,7 @@ class TestProcessLevelShutdown:
         env["ROS_LOCALHOST_ONLY"] = "1"
 
         # start_new_session puts the node in its own process group, so the
-        # signal can be delivered to the GROUP. `ros2 run` is a wrapper that
+        # signal can be delivered to the GROUP. `agiros run` is a wrapper that
         # does not forward SIGTERM to the executable it spawns, so signalling
         # the wrapper alone leaves the node running and proves nothing.
         process = subprocess.Popen(

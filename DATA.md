@@ -27,7 +27,7 @@ for the custom YOLOv8 perception model used in this project.
 ### Collection Procedure
 
 1. Mount RealSense on GO2 at standard operating height (~0.5 m from floor)
-2. Record ROS 2 bag files (`ros2 bag record /go2/camera/image_raw /go2/camera/depth/image_raw`)
+2. Record ROS 2 bag files (`agiros bag record /go2/camera/image_raw /go2/camera/depth/image_raw`)
 3. Extract frames at 1 Hz using `training/collect_frames.py`
 4. Filter for diversity (lighting, distance, pose, occlusion level)
 

@@ -75,7 +75,7 @@ The safety guarantee is bounded by one assumption, stated wherever it appears:
 **a trusted DDS domain.** ROS 2 without SROS2 has no authentication, so any
 process that can reach the robot's network has the same privileges as the
 safety arbiter. The architecture reliably stops a misconfigured controller, a
-stray `ros2 topic pub`, a crashed process, a stalled simulation clock and a
+stray `agiros topic pub`, a crashed process, a stalled simulation clock and a
 mistyped parameter, all demonstrated. It does not stop an adversary already on
 that network. [`docs/safety_architecture_audit.md`](docs/safety_architecture_audit.md)
 reports the audit in full, including the findings that remain open.
@@ -128,7 +128,7 @@ If `rosdep` or ROS 2 is missing, the bootstrap script will say so instead of pre
 ## Build
 
 ```bash
-source /opt/ros/humble/setup.bash
+source /opt/agiros/loong/setup.bash
 colcon build --symlink-install --packages-select go2_msgs
 source install/setup.bash
 colcon build --symlink-install --packages-up-to go2_bringup
@@ -180,20 +180,20 @@ What they cover:
 ## Run
 
 ```bash
-source /opt/ros/humble/setup.bash
+source /opt/agiros/loong/setup.bash
 source install/setup.bash
 
 # The whole decision stack, no hardware at all. Publish perception inputs
-# yourself (a bag, a fixture, or ros2 topic pub).
-ros2 launch go2_bringup system_dry_run.launch.py
+# yourself (a bag, a fixture, or agiros topic pub).
+agiros launch go2_bringup system_dry_run.launch.py
 
 # Real perception (needs a 4-channel mic, a RealSense and YOLO weights),
 # dry-run actuation.
-ros2 launch go2_bringup system.launch.py
+agiros launch go2_bringup system.launch.py
 
 # Physical actuation. Deliberate, and never executed against a GO2 by this
 # repository.
-ros2 launch go2_bringup system.launch.py hardware_adapter:=unitree_sport
+agiros launch go2_bringup system.launch.py hardware_adapter:=unitree_sport
 ```
 
 Arguments: `perception:=real|none`, `planner:=staged|nav2`,
@@ -206,9 +206,9 @@ Unitree SDK is a hard failure, not a silent downgrade to a simulator.
 The quickest check that the architecture is intact on a running system:
 
 ```bash
-ros2 topic info /cmd_vel_safe --verbose   # MUST show exactly one publisher
-ros2 topic echo /go2/safety/status        # what the arbiter is deciding, and why
-ros2 topic echo /go2/bridge/status        # what actually reached the actuator
+agiros topic info /cmd_vel_safe --verbose   # MUST show exactly one publisher
+agiros topic echo /go2/safety/status        # what the arbiter is deciding, and why
+agiros topic echo /go2/bridge/status        # what actually reached the actuator
 ```
 
 ## Troubleshooting
@@ -218,18 +218,18 @@ ros2 topic echo /go2/bridge/status        # what actually reached the actuator
 - Launch dies with behavior tree error:
   ensure `go2_navigation/behavior_trees/navigate_to_pose_recovery.xml` is installed by rebuilding `go2_navigation`.
 - No `/goal_pose` output:
-  first check `ros2 topic echo /go2/grounding_status`, which states the reason
+  first check `agiros topic echo /go2/grounding_status`, which states the reason
   directly: `NO_REQUEST` (no voice command was received; one is required),
   `NO_DETECTIONS`, `BEARING_MISMATCH` (seen and heard in different directions),
   `LOW_CONFIDENCE`, or `CONFIRMATION_TIMEOUT`. If the state reaches `CONFIRMED`
   but no goal appears, the TF lookup failed: check
-  `ros2 run tf2_ros tf2_echo map camera_color_optical_frame`.
+  `agiros run tf2_ros tf2_echo map camera_color_optical_frame`.
 - The robot will not move:
-  check `ros2 topic echo /go2/safety/status`. The `state` and `reason_codes`
+  check `agiros topic echo /go2/safety/status`. The `state` and `reason_codes`
   fields say exactly why. `SAFETY_CONTEXT_STALE` means the safety monitor is not
   publishing, which is a stop by design. `WATCHDOG_TIMEOUT` means no candidate
   is arriving. `EMERGENCY_STOP` means the latch is engaged and only
-  `ros2 service call /safety_arbiter_node/release_estop std_srvs/srv/Trigger`
+  `agiros service call /safety_arbiter_node/release_estop std_srvs/srv/Trigger`
   will clear it.
 - The robot moves more slowly than commanded:
   that is the arbiter clamping and rate-limiting. `intervention_count` and

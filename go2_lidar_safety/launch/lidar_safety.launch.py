@@ -1,7 +1,7 @@
 """
 lidar_safety.launch.py: start lidar_hazard_node wired to the arbiter topics.
 
-    ros2 launch go2_lidar_safety lidar_safety.launch.py cloud_topic:=/go2/lidar/points
+    agiros launch go2_lidar_safety lidar_safety.launch.py cloud_topic:=/go2/lidar/points
 
 The node publishes /go2/safety_state and /go2/safety_alert, the same two
 channels go2_safety_monitor uses. The arbiter resolves them most restrictive

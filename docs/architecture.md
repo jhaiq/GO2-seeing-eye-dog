@@ -55,8 +55,8 @@ arbiter produces commands.
 ## Running it
 
 ```bash
-ros2 launch go2_bringup system_dry_run.launch.py   # no hardware
-ros2 launch go2_bringup system.launch.py           # real perception, dry-run actuation
+agiros launch go2_bringup system_dry_run.launch.py   # no hardware
+agiros launch go2_bringup system.launch.py           # real perception, dry-run actuation
 ```
 
 `hardware_adapter:=dry_run` is the default everywhere. Selecting a physical

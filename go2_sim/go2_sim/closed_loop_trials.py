@@ -1,7 +1,7 @@
 """
 closed_loop_trials: repeated full-stack navigation trials against go2_sim.
 
-    ros2 run go2_sim closed_loop_trials --trials 5 --planner nav2 --out /tmp/trials
+    agiros run go2_sim closed_loop_trials --trials 5 --planner nav2 --out /tmp/trials
 
 Each trial launches, on its own ROS domain, the kinematic sim plus
 go2_bringup/system.launch.py (localization, planner, LiDAR hazard source,
@@ -50,22 +50,22 @@ def _launch(domain: int, planner: str, log_path: Path, bag: Path | None = None,
             world: str | None = None) -> subprocess.Popen:
     env = dict(os.environ, ROS_DOMAIN_ID=str(domain), ROS_LOCALHOST_ONLY="1")
     if world is None:
-        world = subprocess.check_output(["ros2", "pkg", "prefix", "go2_sim"], text=True).strip()
+        world = subprocess.check_output(["agiros", "pkg", "prefix", "go2_sim"], text=True).strip()
         world += "/share/go2_sim/worlds/apartment.yaml"
     cmd = (
-        f"ros2 launch go2_sim sim.launch.py world_file:={world} & "
-        f"sleep 2; ros2 launch go2_bringup system.launch.py perception:=none planner:={planner} "
+        f"agiros launch go2_sim sim.launch.py world_file:={world} & "
+        f"sleep 2; agiros launch go2_bringup system.launch.py perception:=none planner:={planner} "
         "localization:=slam_mapping lidar_safety:=true hardware_adapter:=unitree_sport "
         "cloud_in_topic:=/utlidar/cloud_deskewed "
         + (f"controller_prefix:=\"{GDB_PREFIX}\" " if gdb_controller else "")
         + "& "
     )
     if bag is not None:
-        cmd += f"sleep 3; ros2 bag record -o {bag} {' '.join(BAG_TOPICS)} & "
+        cmd += f"sleep 3; agiros bag record -o {bag} {' '.join(BAG_TOPICS)} & "
     if tf_monitor is not None:
         # An independent, long-lived C++ tf2 listener (not a Nav2 server):
         # if the controller's map->odom freezes, does this one freeze too?
-        cmd += f"sleep 5; ros2 run tf2_ros tf2_echo odom map -r 2 > {tf_monitor} 2>&1 & "
+        cmd += f"sleep 5; agiros run tf2_ros tf2_echo odom map -r 2 > {tf_monitor} 2>&1 & "
     cmd += "wait"
     return subprocess.Popen(
         ["bash", "-c", cmd], env=env, stdout=open(log_path, "w"), stderr=subprocess.STDOUT,

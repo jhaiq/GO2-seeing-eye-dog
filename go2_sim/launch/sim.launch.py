@@ -1,7 +1,7 @@
 """
 sim.launch.py: the kinematic GO2 simulator on its own.
 
-    ros2 launch go2_sim sim.launch.py [world_file:=...] [clock_skew_sec:=...]
+    agiros launch go2_sim sim.launch.py [world_file:=...] [clock_skew_sec:=...]
 
 Stands in for the robot only. Start the motion chain separately with
 hardware_adapter:=unitree_sport; the sim consumes the Sport API requests that

@@ -6,7 +6,7 @@ the gait controller (which starts in STAND), then unpauses physics.
 This prevents gravity collapse before the effort PID is active.
 
 Usage:
-  ros2 launch go2_gait_controller gait_sim_launch.py
+  agiros launch go2_gait_controller gait_sim_launch.py
 """
 
 import os
